@@ -1,0 +1,7 @@
+{
+    "extrainfo_file": "/home/phw/rcs/rdb/cached-extrainfo",
+    "backend_address": "127.0.0.1:7100",
+    "backend_endpoint": "resources",
+    "backend_certfile": "",
+    "backend_keyfile": ""
+}
