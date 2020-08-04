@@ -4,11 +4,12 @@ import (
 	"flag"
 	"log"
 
-	"rdb/internal"
+	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/internal"
 )
 
 func main() {
-	// TODO: Maybe outsource flag parsing to shared code.
+	// TODO: Can we outsource flag parsing and share code across command line
+	// tools?
 	var configFilename string
 	flag.StringVar(&configFilename, "config", "", "Configuration file.")
 	flag.Parse()
@@ -20,5 +21,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	internal.InitBackend(cfg)
+	b := internal.BackendContext{}
+	b.InitBackend(cfg)
 }

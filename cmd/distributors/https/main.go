@@ -4,12 +4,13 @@ import (
 	"flag"
 	"log"
 
-	"rdb/internal"
-	"rdb/internal/distributors"
+	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/internal"
+	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/usecases/distributors"
 )
 
 func main() {
-	// TODO: Maybe outsource flag parsing to shared code.
+	// TODO: Can we outsource flag parsing and share code across command line
+	// tools?
 	var configFilename string
 	flag.StringVar(&configFilename, "config", "", "Configuration file.")
 	flag.Parse()
@@ -22,6 +23,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var h distributors.HTTPSDistributor
+	var h distributors.HttpsDistributor
 	h.Init(cfg)
 }

@@ -1,7 +1,18 @@
 {
-    "extrainfo_file": "/home/phw/rcs/rdb/cached-extrainfo",
-    "backend_address": "127.0.0.1:7100",
-    "backend_endpoint": "resources",
-    "backend_certfile": "",
-    "backend_keyfile": ""
+    "backend": {
+        "extrainfo_file": "cached-extrainfo",
+        "api_address": "127.0.0.1:7100",
+        "api_endpoint": "/resources",
+        "certfile": "",
+        "keyfile": "",
+        "distribution_proportions": {
+            "https": 5,
+            "moat": 5
+        }
+    },
+    "distributors": {
+        "https": {
+            "api_address": "127.0.0.1:7200"
+        }
+    }
 }
