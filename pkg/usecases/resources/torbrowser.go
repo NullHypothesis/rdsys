@@ -1,4 +1,4 @@
-package usecases
+package resources
 
 import (
 	"net/url"
@@ -10,7 +10,15 @@ type TorBrowserLinks struct {
 }
 
 func (l *TorBrowserLinks) String() string {
-	return strings.Join(l.DownloadLinks, "\n")
+	var s []string
+	for _, link := range l.DownloadLinks {
+		s = append(s, link.String())
+	}
+	return strings.Join(s, "\n")
+}
+
+func (l *TorBrowserLinks) Name() string {
+	return "tblinks"
 }
 
 func (l *TorBrowserLinks) IsDepleted() bool {

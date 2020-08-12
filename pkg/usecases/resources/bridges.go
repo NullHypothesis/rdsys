@@ -1,14 +1,16 @@
-package usecases
+package resources
 
 import (
 	"encoding/json"
 	"fmt"
 	"net"
 	"reflect"
+
+	"hash/crc64"
 	"sync"
 	"time"
 
-	domain "rdb/pkg/domain"
+	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
 )
 
 const (
@@ -50,16 +52,17 @@ type Bridges struct {
 
 // Bridge represents a Tor bridge.
 type Bridge struct {
-	Type        string             `json:"type"`
-	Protocol    string             `json:"protocol"`
-	Address     IPAddr             `json:"address"`
-	Port        uint16             `json:"port"`
-	Fingerprint string             `json:"fingerprint"`
-	Distributor string             `json:"-"`
-	FirstSeen   time.Time          `json:"-"`
-	LastSeen    time.Time          `json:"-"`
-	BlockedIn   []*domain.Location `json:"-"`
-	Transports  []*Transport       `json:"-"`
+	core.ResourceBase
+	Type        string           `json:"type"`
+	Protocol    string           `json:"protocol"`
+	Address     IPAddr           `json:"address"`
+	Port        uint16           `json:"port"`
+	Fingerprint string           `json:"fingerprint"`
+	Distributor string           `json:"-"`
+	FirstSeen   time.Time        `json:"-"`
+	LastSeen    time.Time        `json:"-"`
+	BlockedIn   []*core.Location `json:"-"`
+	Transports  []*Transport     `json:"-"`
 }
 
 func (b Bridge) IsPublic() bool {
@@ -96,4 +99,22 @@ func (b *Bridge) AddTransport(t1 *Transport) {
 
 func (b *Bridge) GetBridgeLine() string {
 	return fmt.Sprintf("%s:%d %s", b.Address.String(), b.Port, b.Fingerprint)
+}
+
+func (b *Bridge) Hash() core.Hashkey {
+
+	table := crc64.MakeTable(0x42F0E1EBA9EA3693)
+	return core.Hashkey(crc64.Checksum([]byte(b.GetBridgeLine()), table))
+}
+
+func (b *Bridge) IsDepleted() bool {
+	return false
+}
+
+func (b *Bridge) String() string {
+	return b.GetBridgeLine()
+}
+
+func (b *Bridge) Name() string {
+	return b.Type
 }

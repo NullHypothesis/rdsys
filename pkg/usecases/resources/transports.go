@@ -1,23 +1,24 @@
-package usecases
+package resources
 
 import (
 	"fmt"
+	"hash/crc64"
 	"strings"
 
-	domain "rdb/pkg/domain"
+	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
 )
 
 // Transport represents a Tor bridge's pluggable transport.
 type Transport struct {
-	Resource    domain.ResourceBase
-	Type        string             `json:"type"`
-	Protocol    string             `json:"protocol"`
-	Address     IPAddr             `json:"address"`
-	Port        uint16             `json:"port"`
-	Fingerprint string             `json:"fingerprint"`
-	Parameters  map[string]string  `json:"params,omitempty"`
-	Bridge      *Bridge            `json:"-"`
-	BlockedIn   []*domain.Location `json:"-"`
+	core.ResourceBase
+	Type        string            `json:"type"`
+	Protocol    string            `json:"protocol"`
+	Address     IPAddr            `json:"address"`
+	Port        uint16            `json:"port"`
+	Fingerprint string            `json:"fingerprint"`
+	Parameters  map[string]string `json:"params,omitempty"`
+	Bridge      *Bridge           `json:"-"`
+	BlockedIn   []*core.Location  `json:"-"`
 }
 
 // NewTransport returns a new Transport object.
@@ -40,10 +41,20 @@ func (t *Transport) String() string {
 	return fmt.Sprintf("%s %s:%d %s %s", t.Type, t.Address.String(), t.Port, t.Fingerprint, strings.Join(args, " "))
 }
 
+func (t *Transport) Name() string {
+	return t.Type
+}
+
 func (t *Transport) IsDepleted() bool {
 	return false
 }
 
 func (t *Transport) IsPublic() bool {
 	return false
+}
+
+func (t *Transport) Hash() core.Hashkey {
+
+	table := crc64.MakeTable(0x42F0E1EBA9EA3693)
+	return core.Hashkey(crc64.Checksum([]byte(t.String()), table))
 }
