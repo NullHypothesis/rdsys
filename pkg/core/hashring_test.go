@@ -14,17 +14,25 @@ func (d *Dummy) Hash() Hashkey {
 func (d *Dummy) String() string {
 	return "dummy"
 }
+func (d *Dummy) Name() string {
+	return d.String()
+}
 func (d *Dummy) IsDepleted() bool {
 	return false
 }
 func (d *Dummy) IsPublic() bool {
 	return false
 }
+func (d *Dummy) GetState() int {
+	return 1
+}
+func (d *Dummy) SetState(state int) {
+}
 
 func TestLen(t *testing.T) {
 	d1 := &Dummy{1}
 	d2 := &Dummy{5}
-	h := &Hashring{}
+	h := NewHashring()
 
 	if h.Len() != 0 {
 		t.Errorf("expected length 0 but got %d", h.Len())
@@ -48,7 +56,7 @@ func TestLen(t *testing.T) {
 func TestAdd(t *testing.T) {
 	d1 := &Dummy{1}
 	d2 := &Dummy{2}
-	h := &Hashring{}
+	h := NewHashring()
 
 	if err := h.Add(d1); err != nil {
 		t.Error(err)
@@ -67,7 +75,7 @@ func TestAdd(t *testing.T) {
 func TestGet(t *testing.T) {
 	d1 := &Dummy{5}
 	d2 := &Dummy{10}
-	h := &Hashring{}
+	h := NewHashring()
 
 	if _, err := h.Get(d1.Hash()); err == nil {
 		t.Error("retrieving element from empty hashring should result in error")
@@ -112,7 +120,7 @@ func TestGetMany(t *testing.T) {
 	d1 := &Dummy{5}
 	d2 := &Dummy{10}
 	d3 := &Dummy{15}
-	h := &Hashring{}
+	h := NewHashring()
 
 	if _, err := h.GetMany(0, 0); err == nil {
 		t.Error("requesting elements from empty hashring should result in error")
@@ -148,7 +156,7 @@ func TestRemove(t *testing.T) {
 	d1 := &Dummy{1}
 	d2 := &Dummy{2}
 	d3 := &Dummy{3}
-	h := &Hashring{}
+	h := NewHashring()
 
 	// Add a single element and remove it.
 	h.Add(d1)

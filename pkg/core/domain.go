@@ -1,7 +1,9 @@
-package pkg
+package core
 
-import (
-	"errors"
+const (
+	StateUntested = iota
+	StateFunctional
+	StateNotFunctional
 )
 
 type ResourceRepository interface {
@@ -10,17 +12,24 @@ type ResourceRepository interface {
 }
 
 type Resource interface {
+	Name() string
 	String() string
 	IsDepleted() bool
 	IsPublic() bool
+	Hash() Hashkey
+	SetState(int)
+	GetState() int
 }
 
 type Requester interface {
+	Hash()
 	IsTransient() bool
+	// Location     *Location
 }
 
-type Distributor interface {
-	RateLimitRequester(r *Requester)
+type IpcMechanism interface {
+	// Allows distributors to periodically fetch updated resources.
+	RequestResources(*ResourceRequest, interface{}) error
 }
 
 // CountryCode holds an ISO 3166-1 alpha-2 country code, e.g., "AR".
@@ -40,28 +49,23 @@ type ResourceBase struct {
 	Location  *Location
 	Id        uint
 	BlockedIn map[CountryCode]bool
+	State     int
 
 	Requesters []Requester
+}
+
+func (r *ResourceBase) SetState(state int) {
+	r.State = state
+}
+
+func (r *ResourceBase) GetState() int {
+	return r.State
 }
 
 func NewResourceBase() *ResourceBase {
 	r := &ResourceBase{}
 	r.BlockedIn = make(map[CountryCode]bool)
 	return r
-}
-
-type DistributorBase struct {
-	Resources map[uint]*ResourceBase
-}
-
-func (d *DistributorBase) RequestResource(r *Requester) ([]*ResourceBase, error) {
-
-	if d.RateLimitRequester(r) {
-		return nil, errors.New("requester is rate limited")
-	}
-
-	// TODO: use bridgedb's hash ring idea, i.e., map requester's id (ip
-	// address, email address, ...) to a point in the hashring of resource ids
 }
 
 func (r *ResourceBase) IsBlockedIn(l *Location) bool {
@@ -73,14 +77,11 @@ func (r *ResourceBase) SetBlockedIn(l *Location) {
 	// Maybe update trust levels?
 }
 
-type int TrustLevel
-
-// TODO: Do we really need a separate Request object?
-type Request struct {
-	Trustability TrustLevel
+type ResourceRequest struct {
+	// Name of requesting distributor.
+	RequestOrigin string   `json:"request_origin"`
+	ResourceTypes []string `json:"resource_types"`
 }
 
-type Requester struct {
-	Trustability TrustLevel
-	Location     *Location
+type Response struct {
 }
