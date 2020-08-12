@@ -16,7 +16,7 @@
             "api_address": "127.0.0.1:7200"
         },
         "salmon": {
-            "working_directory": "/tmp/salmon"
+            "working_directory": "/tmp/salmon/"
         }
     }
 }
