@@ -6,13 +6,17 @@
         "certfile": "",
         "keyfile": "",
         "distribution_proportions": {
-            "https": 5,
-            "moat": 5
+            "https": 1,
+            "moat": 1,
+            "salmon": 5
         }
     },
     "distributors": {
         "https": {
             "api_address": "127.0.0.1:7200"
+        },
+        "salmon": {
+            "working_directory": "/tmp/salmon"
         }
     }
 }

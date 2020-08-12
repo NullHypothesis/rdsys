@@ -6,15 +6,37 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"sort"
+
+	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
 )
 
 // Config represents our central configuration file.
 type Config struct {
-	ExtrainfoFile   string `json:"extrainfo_file"`
-	BackendAddress  string `json:"backend_address"`
-	BackendEndpoint string `json:"backend_endpoint"`
-	BackendCertfile string `json:"backend_certfile"`
-	BackendKeyfile  string `json:"backend_keyfile"`
+	Backend      BackendConfig `json:"backend"`
+	Distributors Distributors  `json:"distributors"`
+}
+
+type BackendConfig struct {
+	ExtrainfoFile   string         `json:"extrainfo_file"`
+	ApiAddress      string         `json:"api_address"`
+	ApiEndpoint     string         `json:"api_endpoint"`
+	Certfile        string         `json:"certfile"`
+	Keyfile         string         `json:"keyfile"`
+	DistProportions map[string]int `json:"distribution_proportions"`
+}
+
+type Distributors struct {
+	Https  HttpsDistConfig  `json:"https"`
+	Salmon SalmonDistConfig `json:"salmon"`
+}
+
+type HttpsDistConfig struct {
+	ApiAddress string `json:"api_address"`
+}
+
+type SalmonDistConfig struct {
+	WorkingDirectory string `json:"working_directory"`
 }
 
 // LoadConfig loads the given JSON configuration file and returns the resulting
@@ -42,4 +64,24 @@ func LoadConfig(filename string) (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+// TODO: This function may belong somewhere else.
+// BuildIntervalChain turns the distributor proportions into an interval chain,
+// which helps us determine what distributor a given resource should map to.
+func BuildStencil(proportions map[string]int) *core.Stencil {
+
+	var keys []string
+	for key, _ := range proportions {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	stencil := &core.Stencil{}
+	i := 0
+	for _, k := range keys {
+		stencil.AddInterval(&core.Interval{i, i + proportions[k] - 1, k})
+		i += proportions[k]
+	}
+	return stencil
 }
