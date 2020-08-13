@@ -78,7 +78,7 @@ func (c *HttpsIpcContext) RequestResources(req *core.ResourceRequest, i interfac
 	}
 
 	log.Printf("Trying to unmarshal %s", body)
-	if err := json.Unmarshal(body, &i); err != nil {
+	if err := json.Unmarshal(body, i); err != nil {
 		return err
 	}
 	return nil

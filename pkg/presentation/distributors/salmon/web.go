@@ -42,7 +42,9 @@ func ProxiesHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			var str string
 			for _, proxy := range proxies {
-				str += proxy.String()
+				if proxy != nil {
+					str += proxy.String()
+				}
 			}
 			fmt.Fprintf(w, "proxies:%s\n", str)
 		}
@@ -127,7 +129,7 @@ func Init(cfg *internal.Config) {
 	// if certFilename != "" && keyFilename != "" {
 	// 	log.Fatal(http.ListenAndServeTLS(addr, certFilename, keyFilename, router))
 	// } else {
-	addr := ":8000"
+	addr := ":9000"
 	mux := http.NewServeMux()
 
 	mux.Handle("/proxies", http.HandlerFunc(ProxiesHandler))

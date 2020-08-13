@@ -3,6 +3,8 @@ package distributors
 import (
 	"testing"
 	"time"
+
+	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
 )
 
 func setup() *SalmonDistributor {
@@ -11,8 +13,8 @@ func setup() *SalmonDistributor {
 	p2 := &Proxy{}
 	p3 := &Proxy{}
 	p4 := &Proxy{}
-	salmon.AssignedProxies = []*Proxy{p1, p2, p3}
-	salmon.UnassignedProxies = []*Proxy{p4}
+	salmon.AssignedProxies = []core.Resource{p1, p2, p3}
+	salmon.UnassignedProxies = []core.Resource{p4}
 
 	u1 := &User{}
 	u2 := &User{}
@@ -20,26 +22,11 @@ func setup() *SalmonDistributor {
 	u2.InvitedBy = u1
 	u3.InvitedBy = u1
 
-	u1.Proxies = []*Proxy{p1}
+	u1.Proxies = []core.Resource{p1}
 	u1.Invited = []*User{u2, u3}
-	u3.Proxies = []*Proxy{p2, p3}
+	u3.Proxies = []core.Resource{p2, p3}
 
 	return salmon
-}
-
-func TestFindProxies(t *testing.T) {
-	// salmon := setup()
-
-	// proxies := salmon.findProxies(u2)
-	// if len(proxies) != 3 {
-	// 	t.Errorf("got insufficient number of proxies")
-	// }
-	// if len(salmon.UnassignedProxies) != 1 {
-	// 	t.Errorf("number of unassigned proxies should be unchanged")
-	// }
-	// if len(salmon.AssignedProxies) != 3 {
-	// 	t.Errorf("number of assigned proxies should be unchanged")
-	// }
 }
 
 func TestUpdateUserTrust(t *testing.T) {

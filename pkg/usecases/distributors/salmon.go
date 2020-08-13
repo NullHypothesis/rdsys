@@ -18,6 +18,7 @@ import (
 	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/internal"
 	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
 	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/delivery/mechanisms"
+	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/usecases/resources"
 )
 
 const (
@@ -49,8 +50,8 @@ type SalmonDistributor struct {
 	TokenCache        map[string]*TokenMetaInfo
 	TokenCacheMutex   sync.Mutex
 	Users             map[int]*User
-	AssignedProxies   []*Proxy
-	UnassignedProxies []*Proxy
+	AssignedProxies   []core.Resource
+	UnassignedProxies []core.Resource
 }
 
 // Trust represents the level of trust we have for a user or proxy.
@@ -77,7 +78,7 @@ type User struct {
 	Trust     Trust
 	InvitedBy *User
 	Invited   []*User
-	Proxies   []*Proxy
+	Proxies   []core.Resource
 	// The last time the user got promoted to a higher trust level.
 	LastPromoted time.Time
 }
@@ -98,18 +99,56 @@ func NewSalmonDistributor() *SalmonDistributor {
 	return salmon
 }
 
+func (s *SalmonDistributor) NewUser(trust Trust, inviterId int) *User {
+	maxId := 0
+	for id, _ := range s.Users {
+		if id >= maxId {
+			maxId = id + 1
+		}
+	}
+
+	u := &User{}
+	inviter, exists := s.Users[inviterId]
+	if !exists {
+		// We're dealing with the server admin.
+		inviter = nil
+	} else {
+		inviter.Invited = append(inviter.Invited, u)
+	}
+
+	u.InvitedBy = inviter
+	u.Id = maxId
+	u.Trust = trust
+	u.LastPromoted = time.Now().UTC()
+
+	s.Users[maxId] = u
+	log.Printf("Created new user with ID %d.", maxId)
+
+	return u
+}
+
 // Init initialises the given Salmon distributor.
 func (s *SalmonDistributor) Init(cfg *internal.Config) {
 	log.Printf("Initialising %s distributor.", SalmonDistName)
+
+	s.NewUser(UntouchableTrustLevel, 0)
 
 	// Request resources from our backend.
 	httpsIpc := &mechanisms.HttpsIpcContext{}
 	httpsIpc.ApiEndpoint = "http://" + cfg.Backend.ApiAddress + cfg.Backend.ApiEndpoint
 	httpsIpc.ApiMethod = http.MethodGet
 	s.ipc = httpsIpc
+
+	var obfs4Bridges []*resources.Transport
 	req := core.ResourceRequest{SalmonDistName, []string{"obfs4"}}
-	if err := s.ipc.RequestResources(&req, &s.UnassignedProxies); err != nil {
+	if err := s.ipc.RequestResources(&req, &obfs4Bridges); err != nil {
 		log.Printf("Error while requesting resources: %s", err)
+	}
+	log.Printf("Got %d unassigned proxies.", len(obfs4Bridges))
+
+	// https://golang.org/doc/faq#convert_slice_of_interface
+	for _, bridge := range obfs4Bridges {
+		s.UnassignedProxies = append(s.UnassignedProxies, bridge)
 	}
 
 	s.TokenCacheMutex.Lock()
@@ -140,9 +179,9 @@ func (p *Proxy) IsDepleted() bool {
 }
 
 // Don't call this function directly.  Call findProxies instead.
-func findAssignedProxies(inviter *User) []*Proxy {
+func findAssignedProxies(inviter *User) []core.Resource {
 
-	var proxies []*Proxy
+	var proxies []core.Resource
 
 	// Do the given user's proxies have any free slots?
 	for _, proxy := range inviter.Proxies {
@@ -168,17 +207,18 @@ func findAssignedProxies(inviter *User) []*Proxy {
 	return proxies
 }
 
-func (s *SalmonDistributor) findProxies(invitee *User) []*Proxy {
+func (s *SalmonDistributor) findProxies(invitee *User) []core.Resource {
 
 	if invitee == nil {
 		return nil
 	}
 
-	var proxies []*Proxy
+	var proxies []core.Resource
 	// People who registered and admin friends don't have an inviter.
 	if invitee.InvitedBy != nil {
 		proxies := findAssignedProxies(invitee.InvitedBy)
 		if len(proxies) == NumProxiesPerUser {
+			log.Printf("Returning %d proxies to user.", len(proxies))
 			return proxies
 		}
 	}
@@ -193,15 +233,18 @@ func (s *SalmonDistributor) findProxies(invitee *User) []*Proxy {
 	s.UnassignedProxies = s.UnassignedProxies[numRemaining:]
 	log.Printf("Not enough assigned proxies; allocated %d unassigned proxies, %d remaining",
 		len(newProxies), len(s.UnassignedProxies))
-	s.AssignedProxies = append(s.AssignedProxies, newProxies...)
 
-	proxies = append(proxies, newProxies...)
+	for _, p := range newProxies {
+		s.AssignedProxies = append(s.AssignedProxies, p)
+		invitee.Proxies = append(invitee.Proxies, p)
+		proxies = append(proxies, p)
+	}
 
 	return proxies
 }
 
 // GetProxies attempts to return proxies for the given user.
-func (s *SalmonDistributor) GetProxies(userId int) ([]*Proxy, error) {
+func (s *SalmonDistributor) GetProxies(userId int) ([]core.Resource, error) {
 
 	user, exists := s.Users[userId]
 	if !exists {
@@ -211,7 +254,13 @@ func (s *SalmonDistributor) GetProxies(userId int) ([]*Proxy, error) {
 	if user.Banned {
 		return nil, errors.New("user is blocked and therefore unable to get proxies")
 	}
-	return s.findProxies(user.InvitedBy), nil
+
+	// Does the user already have assigned proxies?
+	if len(user.Proxies) > 0 {
+		return user.Proxies, nil
+	}
+
+	return s.findProxies(user), nil
 }
 
 // Housekeeping keeps track of periodic tasks.
@@ -233,7 +282,7 @@ func (s *SalmonDistributor) Housekeeping(shutdown chan bool) {
 			}
 			log.Printf("Updating trust levels of %d proxies.", len(s.AssignedProxies))
 			for _, proxy := range s.AssignedProxies {
-				proxy.UpdateTrust()
+				proxy.(*Proxy).UpdateTrust()
 			}
 			log.Printf("Pruning token cache.")
 			s.pruneTokenCache()
@@ -392,20 +441,7 @@ func (s *SalmonDistributor) RedeemInvite(token string) (int, error) {
 	}
 
 	// Create and return new user account.
-	u := &User{}
-	maxId := 0
-	for id, _ := range s.Users {
-		if id > maxId {
-			maxId = id
-		}
-	}
-	inviter.Invited = append(inviter.Invited, u)
-	u.Id = maxId + 1
-	u.InvitedBy = inviter
-	u.Trust = inviter.Trust - 1
-	u.LastPromoted = time.Now().UTC()
-	s.Users[u.Id] = u
-
+	u := s.NewUser(inviter.Trust-1, inviter.Id)
 	return u.Id, nil
 }
 
@@ -414,17 +450,6 @@ func (s *SalmonDistributor) Register() (int, error) {
 
 	// TODO: Figure out how users can sign up for Salmon.  The following is a
 	// dummy implementation that facilitates testing.
-	u := &User{}
-	maxId := 0
-	for id, _ := range s.Users {
-		if id > maxId {
-			maxId = id + 1
-		}
-	}
-	u.Id = maxId
-	u.Trust = MaxTrustLevel
-	u.LastPromoted = time.Now().UTC()
-	s.Users[u.Id] = u
-
+	u := s.NewUser(MaxTrustLevel, 0)
 	return u.Id, nil
 }
