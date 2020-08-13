@@ -135,7 +135,7 @@ func (s *SalmonDistributor) Init(cfg *internal.Config) {
 
 	// Request resources from our backend.
 	httpsIpc := &mechanisms.HttpsIpcContext{}
-	httpsIpc.ApiEndpoint = "http://" + cfg.Backend.ApiAddress + cfg.Backend.ApiEndpoint
+	httpsIpc.ApiEndpoint = "http://" + cfg.Backend.ApiAddress + cfg.Backend.ResourcesEndpoint
 	httpsIpc.ApiMethod = http.MethodGet
 	s.ipc = httpsIpc
 

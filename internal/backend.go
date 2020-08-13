@@ -64,10 +64,11 @@ func (r ResourceCollection) Get(distName string, rType string) []core.Resource {
 
 // startWebApi starts our Web server.
 func (b *BackendContext) startWebApi(cfg *Config, srv *http.Server) {
-	log.Printf("Starting Web API at %s%s.", cfg.Backend.ApiAddress, cfg.Backend.ApiEndpoint)
+	log.Printf("Starting Web API at %s.", cfg.Backend.ApiAddress)
 
 	mux := http.NewServeMux()
-	mux.Handle(cfg.Backend.ApiEndpoint, http.HandlerFunc(b.resourcesHandler))
+	mux.Handle(cfg.Backend.ResourcesEndpoint, http.HandlerFunc(b.resourcesHandler))
+	mux.Handle(cfg.Backend.TargetsEndpoint, http.HandlerFunc(b.targetsHandler))
 	srv.Handler = mux
 	srv.Addr = cfg.Backend.ApiAddress
 
@@ -157,15 +158,7 @@ func extractResourceRequest(w http.ResponseWriter, r *http.Request) (*core.Resou
 	return req, nil
 }
 
-// resourcesHandler handles HTTP requests for the /resources end point.
-func (b *BackendContext) resourcesHandler(w http.ResponseWriter, r *http.Request) {
-
-	if r.Method != http.MethodGet {
-		log.Printf("Received unsupported request method %q from %s.", r.Method, r.RemoteAddr)
-		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-
+func (b *BackendContext) getResourcesHandler(w http.ResponseWriter, r *http.Request) {
 	// Here's how we can test the API using the command line:
 	// curl -X GET localhost:7100 -d '{"request_origin":"https","resource_types":["obfs4"]}'
 	req, err := extractResourceRequest(w, r)
@@ -191,4 +184,28 @@ func (b *BackendContext) resourcesHandler(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, string(jsonBlurb))
+}
+
+func (b *BackendContext) postResourcesHandler(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "not yet implemented", http.StatusInternalServerError)
+}
+
+// resourcesHandler handles requests coming from distributors (if it's GET
+// requests) and from proxies (if it's POST requests).
+func (b *BackendContext) resourcesHandler(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method == http.MethodGet {
+		b.getResourcesHandler(w, r)
+	} else if r.Method == http.MethodPost {
+		b.postResourcesHandler(w, r)
+	} else {
+		log.Printf("Received unsupported request method %q from %s.", r.Method, r.RemoteAddr)
+		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
+	}
+}
+
+// targetsHandler handles requests coming from censorship measurement clients
+// like OONI.
+func (b *BackendContext) targetsHandler(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "not yet implemented", http.StatusInternalServerError)
 }

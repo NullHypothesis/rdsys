@@ -66,7 +66,8 @@ func (d *HttpsDistributor) Init(cfg *internal.Config) error {
 	d.cfg = cfg
 	// d.ipc = delivery.NewHttpsIpcContext(cfg)
 	httpsIpc := &mechanisms.HttpsIpcContext{}
-	httpsIpc.ApiEndpoint = cfg.Distributors.Https.ApiAddress
+	//httpsIpc.ApiEndpoint = cfg.Distributors.Https.ApiAddress
+	httpsIpc.ApiEndpoint = "http://" + cfg.Backend.ApiAddress + cfg.Backend.ResourcesEndpoint
 	httpsIpc.ApiMethod = http.MethodGet
 	d.ipc = httpsIpc
 	d.requestResources()

@@ -2,7 +2,8 @@
     "backend": {
         "extrainfo_file": "cached-extrainfo",
         "api_address": "127.0.0.1:7100",
-        "api_endpoint": "/resources",
+        "api_endpoint_resources": "/resources",
+        "api_endpoint_targets": "/targets",
         "certfile": "",
         "keyfile": "",
         "distribution_proportions": {

@@ -18,12 +18,13 @@ type Config struct {
 }
 
 type BackendConfig struct {
-	ExtrainfoFile   string         `json:"extrainfo_file"`
-	ApiAddress      string         `json:"api_address"`
-	ApiEndpoint     string         `json:"api_endpoint"`
-	Certfile        string         `json:"certfile"`
-	Keyfile         string         `json:"keyfile"`
-	DistProportions map[string]int `json:"distribution_proportions"`
+	ExtrainfoFile     string         `json:"extrainfo_file"`
+	ApiAddress        string         `json:"api_address"`
+	ResourcesEndpoint string         `json:"api_endpoint_resources"`
+	TargetsEndpoint   string         `json:"api_endpoint_targets"`
+	Certfile          string         `json:"certfile"`
+	Keyfile           string         `json:"keyfile"`
+	DistProportions   map[string]int `json:"distribution_proportions"`
 }
 
 type Distributors struct {
