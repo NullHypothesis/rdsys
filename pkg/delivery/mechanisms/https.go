@@ -3,6 +3,7 @@ package mechanisms
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -71,6 +72,10 @@ func (c *HttpsIpcContext) RequestResources(req *core.ResourceRequest, i interfac
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("got HTTP status code %d", resp.StatusCode)
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
