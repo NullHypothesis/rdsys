@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"time"
 
@@ -158,7 +159,40 @@ func extractResourceRequest(w http.ResponseWriter, r *http.Request) (*core.Resou
 	return req, nil
 }
 
+// isAuthenticated authenticates the given HTTP request.  If this fails, it
+// writes an error to the given ResponseWriter and returns false.
+func (b *BackendContext) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
+
+	// First, we take the bearer token from the 'Authorization' HTTP header.
+	tokenLine := r.Header.Get("Authorization")
+	if tokenLine == "" {
+		http.Error(w, "request carries no 'Authorization' HTTP header", http.StatusBadRequest)
+		return false
+	}
+	if !strings.HasPrefix(tokenLine, "Bearer ") {
+		http.Error(w, "authorization header contains no bearer token", http.StatusBadRequest)
+		return false
+	}
+	fields := strings.Split(tokenLine, " ")
+	givenToken := fields[1]
+
+	// Do we have the given token on record?
+	for _, savedToken := range b.Config.Backend.ApiTokens {
+		if givenToken == savedToken {
+			return true
+		}
+	}
+	http.Error(w, "invalid authentication token", http.StatusUnauthorized)
+
+	return false
+}
+
 func (b *BackendContext) getResourcesHandler(w http.ResponseWriter, r *http.Request) {
+
+	if !b.isAuthenticated(w, r) {
+		return
+	}
+
 	// Here's how we can test the API using the command line:
 	// curl -X GET localhost:7100 -d '{"request_origin":"https","resource_types":["obfs4"]}'
 	req, err := extractResourceRequest(w, r)
@@ -207,5 +241,9 @@ func (b *BackendContext) resourcesHandler(w http.ResponseWriter, r *http.Request
 // targetsHandler handles requests coming from censorship measurement clients
 // like OONI.
 func (b *BackendContext) targetsHandler(w http.ResponseWriter, r *http.Request) {
+
+	if !b.isAuthenticated(w, r) {
+		return
+	}
 	http.Error(w, "not yet implemented", http.StatusInternalServerError)
 }

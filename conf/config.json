@@ -4,6 +4,7 @@
         "api_address": "127.0.0.1:7100",
         "api_endpoint_resources": "/resources",
         "api_endpoint_targets": "/targets",
+        "api_tokens": ["foo", "bar"],
         "certfile": "",
         "keyfile": "",
         "distribution_proportions": {
