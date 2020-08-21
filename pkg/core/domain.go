@@ -16,7 +16,14 @@ type Resource interface {
 	String() string
 	IsDepleted() bool
 	IsPublic() bool
-	Hash() Hashkey
+	// Uid returns the resource's unique identifier.  Bridges with different
+	// fingerprints have different unique identifiers.
+	Uid() Hashkey
+	// Oid returns the resource's object identifier.  Bridges with the *same*
+	// fingerprint but different, say, IP addresses have different object
+	// identifiers.  If two resources have the same Oid, they must have the
+	// same Uid but not vice versa.
+	Oid() Hashkey
 	SetState(int)
 	GetState() int
 }

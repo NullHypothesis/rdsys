@@ -7,6 +7,12 @@ import (
 	"sync"
 )
 
+type HashringDiff struct {
+	New     []Resource
+	Changed []Resource
+	Gone    []Resource
+}
+
 type Hashkey uint64
 
 type Hashnode struct {
@@ -45,6 +51,43 @@ func (h *Hashring) Swap(i, j int) {
 	h.Hashnodes[i], h.Hashnodes[j] = h.Hashnodes[j], h.Hashnodes[i]
 }
 
+// Diff determines the resources that are 1) in h1 but not h2 (new), 2) in both
+// h1 and h2 but changed, and 3) in h2 but not h1 (gone).
+func (h1 *Hashring) Diff(h2 *Hashring) *HashringDiff {
+
+	diff := &HashringDiff{}
+
+	for _, n := range h1.Hashnodes {
+		r1 := n.Elem
+
+		index, err := h2.getIndex(r1.Uid())
+		// The given resource is not present in h2, so it must be new.
+		if err != nil {
+			diff.New = append(diff.New, r1)
+			continue
+		}
+
+		// The given resource is present.  Did it change, though?
+		r2 := h2.Hashnodes[index].Elem
+		if r1.Oid() != r2.Oid() {
+			diff.Changed = append(diff.Changed, r1)
+		}
+	}
+
+	// Finally, find resources that are gone.
+	for _, n := range h2.Hashnodes {
+		r2 := n.Elem
+
+		_, err := h1.getIndex(r2.Uid())
+		// The given resource is not present in h1, so it must be gone.
+		if err != nil {
+			diff.Gone = append(diff.Gone, r2)
+		}
+	}
+
+	return diff
+}
+
 // Add adds the given resource to the hashring.  If the resource is already
 // present, an error is returned.
 func (h *Hashring) Add(r Resource) error {
@@ -52,13 +95,15 @@ func (h *Hashring) Add(r Resource) error {
 	defer h.Unlock()
 
 	// Does the hashring already have the resource?
-	if _, err := h.getIndex(r.Hash()); err == nil {
+	if _, err := h.getIndex(r.Uid()); err == nil {
 		return errors.New("resource already present in hashring")
 	}
 	// Run our "on-add" hook.
-	// go h.OnAddFunc(r)
+	if h.OnAddFunc != nil {
+		go h.OnAddFunc(r)
+	}
 
-	n := &Hashnode{r.Hash(), r}
+	n := &Hashnode{r.Uid(), r}
 	h.Hashnodes = append(h.Hashnodes, n)
 	sort.Sort(h)
 	return nil
@@ -70,7 +115,7 @@ func (h *Hashring) Remove(r Resource) error {
 	h.Lock()
 	defer h.Unlock()
 
-	i, err := h.getIndex(r.Hash())
+	i, err := h.getIndex(r.Uid())
 	if err != nil {
 		return err
 	}

@@ -93,7 +93,7 @@ func (s *Stencil) GetFilterFunc(distName string) (FilterFunc, error) {
 	f := func(r Resource) bool {
 
 		// What interval does the resource's hash fall into?
-		seed := r.Hash()
+		seed := r.Uid()
 		rand.Seed(int64(seed))
 		n := rand.Intn(upperEnd + 1)
 

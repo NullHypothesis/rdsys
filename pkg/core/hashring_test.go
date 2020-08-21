@@ -5,11 +5,15 @@ import (
 )
 
 type Dummy struct {
-	Id Hashkey
+	ObjectId Hashkey
+	UniqueId Hashkey
 }
 
-func (d *Dummy) Hash() Hashkey {
-	return d.Id
+func (d *Dummy) Oid() Hashkey {
+	return d.ObjectId
+}
+func (d *Dummy) Uid() Hashkey {
+	return d.UniqueId
 }
 func (d *Dummy) String() string {
 	return "dummy"
@@ -30,8 +34,8 @@ func (d *Dummy) SetState(state int) {
 }
 
 func TestLen(t *testing.T) {
-	d1 := &Dummy{1}
-	d2 := &Dummy{5}
+	d1 := &Dummy{1, 1}
+	d2 := &Dummy{5, 5}
 	h := NewHashring()
 
 	if h.Len() != 0 {
@@ -54,8 +58,8 @@ func TestLen(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	d1 := &Dummy{1}
-	d2 := &Dummy{2}
+	d1 := &Dummy{1, 1}
+	d2 := &Dummy{2, 2}
 	h := NewHashring()
 
 	if err := h.Add(d1); err != nil {
@@ -73,11 +77,11 @@ func TestAdd(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	d1 := &Dummy{5}
-	d2 := &Dummy{10}
+	d1 := &Dummy{5, 5}
+	d2 := &Dummy{10, 10}
 	h := NewHashring()
 
-	if _, err := h.Get(d1.Hash()); err == nil {
+	if _, err := h.Get(d1.Uid()); err == nil {
 		t.Error("retrieving element from empty hashring should result in error")
 	}
 
@@ -87,7 +91,7 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if i.(*Dummy).Id != 5 {
+	if i.(*Dummy).UniqueId != 5 {
 		t.Error("got wrong element")
 	}
 
@@ -95,7 +99,7 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if i.(*Dummy).Id != 5 {
+	if i.(*Dummy).UniqueId != 5 {
 		t.Error("got wrong element")
 	}
 
@@ -103,7 +107,7 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if i.(*Dummy).Id != 10 {
+	if i.(*Dummy).UniqueId != 10 {
 		t.Error("got wrong element")
 	}
 
@@ -111,15 +115,15 @@ func TestGet(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if i.(*Dummy).Id != 5 {
+	if i.(*Dummy).UniqueId != 5 {
 		t.Error("got wrong element")
 	}
 }
 
 func TestGetMany(t *testing.T) {
-	d1 := &Dummy{5}
-	d2 := &Dummy{10}
-	d3 := &Dummy{15}
+	d1 := &Dummy{5, 5}
+	d2 := &Dummy{10, 10}
+	d3 := &Dummy{15, 15}
 	h := NewHashring()
 
 	if _, err := h.GetMany(0, 0); err == nil {
@@ -141,21 +145,21 @@ func TestGetMany(t *testing.T) {
 	if len(elems) != numElems {
 		t.Errorf("got %d elements but expected 3", numElems)
 	}
-	if elems[0].(*Dummy).Id != 15 {
+	if elems[0].(*Dummy).UniqueId != 15 {
 		t.Error("got wrong element")
 	}
-	if elems[1].(*Dummy).Id != 5 {
+	if elems[1].(*Dummy).UniqueId != 5 {
 		t.Error("got wrong element")
 	}
-	if elems[2].(*Dummy).Id != 10 {
+	if elems[2].(*Dummy).UniqueId != 10 {
 		t.Error("got wrong element")
 	}
 }
 
 func TestRemove(t *testing.T) {
-	d1 := &Dummy{1}
-	d2 := &Dummy{2}
-	d3 := &Dummy{3}
+	d1 := &Dummy{1, 1}
+	d2 := &Dummy{2, 2}
+	d3 := &Dummy{3, 3}
 	h := NewHashring()
 
 	// Add a single element and remove it.
@@ -202,10 +206,48 @@ func TestRemove(t *testing.T) {
 	}
 
 	// Make sure that d1 and d3 remain in the hashring.
-	if _, err := h.Get(d1.Hash()); err != nil {
+	if _, err := h.Get(d1.Uid()); err != nil {
 		t.Error(err)
 	}
-	if _, err := h.Get(d3.Hash()); err != nil {
+	if _, err := h.Get(d3.Uid()); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestDiff(t *testing.T) {
+
+	h1 := &Hashring{}
+	h2 := &Hashring{}
+	d1 := &Dummy{1, 1}
+	d2 := &Dummy{2, 2}
+	d3 := &Dummy{3, 2}
+	d4 := &Dummy{4, 3}
+
+	h1.Add(d1)
+	h1.Add(d2)
+	h2.Add(d3)
+	h2.Add(d4)
+
+	// We should be dealing with one new, one changed, and one gone resource.
+	diff := h1.Diff(h2)
+	if len(diff.New) != 1 {
+		t.Error("incorrect number of new resources")
+	}
+	if diff.New[0] != d1 {
+		t.Error("failed to find new resources")
+	}
+
+	if len(diff.Changed) != 1 {
+		t.Error("incorrect number of changed resources")
+	}
+	if diff.Changed[0] != d2 {
+		t.Errorf("failed to find changed resources")
+	}
+
+	if len(diff.Gone) != 1 {
+		t.Error("incorrect number of gone resources")
+	}
+	if diff.Gone[0] != d4 {
+		t.Errorf("failed to find gone resources")
 	}
 }

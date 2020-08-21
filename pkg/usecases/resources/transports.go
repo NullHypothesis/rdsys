@@ -53,8 +53,12 @@ func (t *Transport) IsPublic() bool {
 	return false
 }
 
-func (t *Transport) Hash() core.Hashkey {
-
-	table := crc64.MakeTable(0x42F0E1EBA9EA3693)
+func (t *Transport) Oid() core.Hashkey {
+	table := crc64.MakeTable(Crc64Polynomial)
 	return core.Hashkey(crc64.Checksum([]byte(t.String()), table))
+}
+
+func (t *Transport) Uid() core.Hashkey {
+	table := crc64.MakeTable(Crc64Polynomial)
+	return core.Hashkey(crc64.Checksum([]byte(t.Fingerprint), table))
 }

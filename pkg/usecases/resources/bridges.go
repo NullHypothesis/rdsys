@@ -101,10 +101,14 @@ func (b *Bridge) GetBridgeLine() string {
 	return fmt.Sprintf("%s:%d %s", b.Address.String(), b.Port, b.Fingerprint)
 }
 
-func (b *Bridge) Hash() core.Hashkey {
-
-	table := crc64.MakeTable(0x42F0E1EBA9EA3693)
+func (b *Bridge) Oid() core.Hashkey {
+	table := crc64.MakeTable(Crc64Polynomial)
 	return core.Hashkey(crc64.Checksum([]byte(b.GetBridgeLine()), table))
+}
+
+func (b *Bridge) Uid() core.Hashkey {
+	table := crc64.MakeTable(Crc64Polynomial)
+	return core.Hashkey(crc64.Checksum([]byte(b.Fingerprint), table))
 }
 
 func (b *Bridge) IsDepleted() bool {
@@ -117,4 +121,8 @@ func (b *Bridge) String() string {
 
 func (b *Bridge) Name() string {
 	return b.Type
+}
+
+func GetTorBridgeTypes() []string {
+	return []string{BridgeTypeVanilla, BridgeTypeObfs4}
 }

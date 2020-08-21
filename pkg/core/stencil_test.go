@@ -67,7 +67,7 @@ func TestGetFilterFunc(t *testing.T) {
 	runs := 10000
 	d := &Dummy{}
 	for i := 0; i < runs; i++ {
-		d.Id = Hashkey(rand.Uint64())
+		d.UniqueId = Hashkey(rand.Uint64())
 		if f(d) {
 			hits++
 		}
