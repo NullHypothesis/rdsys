@@ -46,7 +46,7 @@ func (h *Hashring) Less(i, j int) bool {
 	return h.Hashnodes[i].Hashkey < h.Hashnodes[j].Hashkey
 }
 
-// Swap implements the Swap interface.
+// Swap implements the sort interface.
 func (h *Hashring) Swap(i, j int) {
 	h.Hashnodes[i], h.Hashnodes[j] = h.Hashnodes[j], h.Hashnodes[i]
 }
