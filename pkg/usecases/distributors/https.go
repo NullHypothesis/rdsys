@@ -9,9 +9,9 @@ import (
 	"os/signal"
 	"time"
 
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/internal"
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/delivery/mechanisms"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/internal"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery/mechanisms"
 )
 
 const (

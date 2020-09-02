@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 )
 
 func setup() *SalmonDistributor {

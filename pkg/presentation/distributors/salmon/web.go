@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"syscall"
 
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/internal"
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/usecases/distributors"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/internal"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/distributors"
 )
 
 var salmon *distributors.SalmonDistributor

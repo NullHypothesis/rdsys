@@ -4,8 +4,8 @@ import (
 	"flag"
 	"log"
 
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/internal"
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/usecases/distributors"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/internal"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/distributors"
 )
 
 func main() {

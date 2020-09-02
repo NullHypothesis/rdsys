@@ -13,8 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/delivery"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery/mechanisms"
 )
 
 // BackendContext contains the state that our backend requires.

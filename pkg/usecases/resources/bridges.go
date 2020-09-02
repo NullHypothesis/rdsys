@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 )
 
 const (

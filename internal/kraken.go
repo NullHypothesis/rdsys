@@ -13,10 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/delivery"
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/delivery/mechanisms"
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/usecases/resources"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
 
 const (

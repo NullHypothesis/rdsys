@@ -5,7 +5,7 @@ import (
 	"hash/crc64"
 	"strings"
 
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 )
 
 // Transport represents a Tor bridge's pluggable transport.

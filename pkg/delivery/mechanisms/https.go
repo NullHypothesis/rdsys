@@ -8,7 +8,8 @@ import (
 	"log"
 	"net/http"
 
-	"gitlab.torproject.org/tpo/anti-censorship/ouroboros/pkg/core"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
 
 type HttpsIpcContext struct {
