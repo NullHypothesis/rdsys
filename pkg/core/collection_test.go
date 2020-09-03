@@ -5,9 +5,9 @@ import (
 )
 
 func TestAddCollection(t *testing.T) {
-	d1 := &Dummy{1, 1}
-	d2 := &Dummy{2, 2}
-	d3 := &Dummy{3, 2}
+	d1 := NewDummy(1, 1)
+	d2 := NewDummy(2, 2)
+	d3 := NewDummy(3, 2)
 	c := NewBackendResources([]string{d1.Name()}, &Stencil{})
 
 	c.Add(d1)
@@ -30,7 +30,7 @@ func TestAddCollection(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 	if elems[0] != d1 {
-		t.Errorf("got unexpected element.")
+		t.Errorf("got unexpected element")
 	}
 	if elems[1] != d3 {
 		t.Errorf("got unexpected element: %d", elems[1].Oid())

@@ -6,10 +6,14 @@ import (
 
 // Dummy implements a simple Resource.
 type Dummy struct {
-	ObjectId Hashkey
-	UniqueId Hashkey
+	ObjectId   Hashkey
+	UniqueId   Hashkey
+	ExpiryTime time.Duration
 }
 
+func NewDummy(oid Hashkey, uid Hashkey) *Dummy {
+	return &Dummy{ObjectId: oid, UniqueId: uid}
+}
 func (d *Dummy) Oid() Hashkey {
 	return d.ObjectId
 }
@@ -34,5 +38,5 @@ func (d *Dummy) GetState() int {
 func (d *Dummy) SetState(state int) {
 }
 func (d *Dummy) Expiry() time.Duration {
-	return time.Duration(0)
+	return d.ExpiryTime
 }
