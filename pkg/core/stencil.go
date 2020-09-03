@@ -15,8 +15,8 @@ type Stencil struct {
 }
 
 type SplitHashring struct {
-	Hashring
-	Stencil
+	*Hashring
+	*Stencil
 }
 
 type Interval struct {
@@ -26,7 +26,7 @@ type Interval struct {
 }
 
 func NewSplitHashring() *SplitHashring {
-	return &SplitHashring{*NewHashring(), Stencil{}}
+	return &SplitHashring{NewHashring(), &Stencil{}}
 }
 
 // Contains returns 'true' if the given number n falls into the interval [a, b]
