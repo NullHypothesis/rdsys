@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -35,7 +34,7 @@ type BridgestrapResponse struct {
 	Time       float64 `json:"time"`
 }
 
-func InitKraken(cfg *Config, shutdown chan bool, ready chan bool, rcol ResourceCollection) {
+func InitKraken(cfg *Config, shutdown chan bool, ready chan bool, rcol core.BackendResources) {
 	log.Println("Initialising resource kraken.")
 	ticker := time.NewTicker(KrakenTickerInterval)
 	defer ticker.Stop()
@@ -45,19 +44,26 @@ func InitKraken(cfg *Config, shutdown chan bool, ready chan bool, rcol ResourceC
 	reloadBridgeDescriptors(cfg.Backend.ExtrainfoFile, rcol)
 	ready <- true
 
-	bridgestrapCtx := mechanisms.HttpsIpcContext{}
-	bridgestrapCtx.ApiEndpoint = "http://localhost:5000/bridge-state"
-	bridgestrapCtx.ApiMethod = http.MethodGet
-	rcol.Collection[resources.BridgeTypeObfs4].OnAddFunc = queryBridgestrap(&bridgestrapCtx)
-
 	for {
 		select {
 		case <-shutdown:
+			log.Printf("Kraken shut down.")
 			return
 		case <-ticker.C:
 			log.Println("Kraken's ticker is ticking.")
 			reloadBridgeDescriptors(cfg.Backend.ExtrainfoFile, rcol)
+
+			pruneExpiredResources(rcol)
 		}
+	}
+}
+
+func pruneExpiredResources(rcol core.BackendResources) {
+
+	for rName, hashring := range rcol.Collection {
+		origLen := hashring.Len()
+		prunedResources := hashring.Prune()
+		log.Printf("Pruned %d out of %d resources from %s hashring.", len(prunedResources), origLen, rName)
 	}
 }
 
@@ -67,9 +73,11 @@ func queryBridgestrap(m delivery.Mechanism) core.OnAddFunc {
 		log.Printf("Making bridgestrap request.")
 		req := BridgestrapRequest{r.String()}
 		resp := BridgestrapResponse{}
-		// Note that this request can take up to one minute to complete because
-		// bridgestrap's timeout is 60 seconds.
-		m.MakeRequest(req, &resp)
+		// This request can take several minutes to complete.
+		if err := m.MakeRequest(req, &resp); err != nil {
+			log.Printf("Request failed because: %s", err)
+			return
+		}
 
 		if resp.Functional {
 			r.SetState(core.StateFunctional)
@@ -81,7 +89,7 @@ func queryBridgestrap(m delivery.Mechanism) core.OnAddFunc {
 }
 
 // reloadBridgeDescriptors reloads bridge descriptor from the given file.
-func reloadBridgeDescriptors(extrainfoFile string, bag ResourceCollection) {
+func reloadBridgeDescriptors(extrainfoFile string, rcol core.BackendResources) {
 
 	var err error
 	var res []core.Resource
@@ -96,7 +104,7 @@ func reloadBridgeDescriptors(extrainfoFile string, bag ResourceCollection) {
 
 	log.Println("Adding new resources.")
 	for _, resource := range res {
-		bag.Add(resource.Name(), resource)
+		rcol.Add(resource)
 	}
 	log.Println("Done adding new resources.")
 }
