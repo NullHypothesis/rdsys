@@ -67,6 +67,18 @@ func (s *Stencil) GetUpperEnd() (int, error) {
 	return max, nil
 }
 
+// IsResourceInDist returns true if the given resource maps to the given
+// distributor and false otherwise.
+func (s *Stencil) IsResourceInDist(r Resource, distName string) bool {
+
+	filterFunc, err := s.GetFilterFunc(distName)
+	if err != nil {
+		log.Println("ERROR")
+		return false
+	}
+	return filterFunc(r)
+}
+
 // GetFilterFunc returns a hashring filter function which, when applied to a
 // hashring, returns a subset of the hashring.  The idea is that the given
 // distributor name results in a function that deterministically maps to a
