@@ -4,35 +4,6 @@ import (
 	"testing"
 )
 
-type Dummy struct {
-	ObjectId Hashkey
-	UniqueId Hashkey
-}
-
-func (d *Dummy) Oid() Hashkey {
-	return d.ObjectId
-}
-func (d *Dummy) Uid() Hashkey {
-	return d.UniqueId
-}
-func (d *Dummy) String() string {
-	return "dummy"
-}
-func (d *Dummy) Name() string {
-	return d.String()
-}
-func (d *Dummy) IsDepleted() bool {
-	return false
-}
-func (d *Dummy) IsPublic() bool {
-	return false
-}
-func (d *Dummy) GetState() int {
-	return 1
-}
-func (d *Dummy) SetState(state int) {
-}
-
 func TestLen(t *testing.T) {
 	d1 := &Dummy{1, 1}
 	d2 := &Dummy{5, 5}
@@ -233,21 +204,21 @@ func TestDiff(t *testing.T) {
 	if len(diff.New) != 1 {
 		t.Error("incorrect number of new resources")
 	}
-	if diff.New[0] != d1 {
+	if diff.New["dummy"][0] != d1 {
 		t.Error("failed to find new resources")
 	}
 
 	if len(diff.Changed) != 1 {
 		t.Error("incorrect number of changed resources")
 	}
-	if diff.Changed[0] != d2 {
+	if diff.Changed["dummy"][0] != d2 {
 		t.Errorf("failed to find changed resources")
 	}
 
 	if len(diff.Gone) != 1 {
 		t.Error("incorrect number of gone resources")
 	}
-	if diff.Gone[0] != d4 {
+	if diff.Gone["dummy"][0] != d4 {
 		t.Errorf("failed to find gone resources")
 	}
 }

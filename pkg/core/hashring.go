@@ -5,19 +5,21 @@ import (
 	"log"
 	"sort"
 	"sync"
+	"time"
 )
 
 type HashringDiff struct {
-	New     []Resource
-	Changed []Resource
-	Gone    []Resource
+	New     ResourceMap `json:"new"`
+	Changed ResourceMap `json:"changed"`
+	Gone    ResourceMap `json:"gone"`
 }
 
 type Hashkey uint64
 
 type Hashnode struct {
-	Hashkey Hashkey
-	Elem    Resource
+	Hashkey    Hashkey
+	Elem       Resource
+	LastUpdate time.Time
 }
 
 type Hashring struct {
@@ -28,6 +30,18 @@ type Hashring struct {
 
 type FilterFunc func(r Resource) bool
 type OnAddFunc func(r Resource)
+
+func NewHashringDiff() *HashringDiff {
+	return &HashringDiff{
+		New:     make(ResourceMap),
+		Changed: make(ResourceMap),
+		Gone:    make(ResourceMap),
+	}
+}
+
+func NewHashnode(k Hashkey, r Resource) *Hashnode {
+	return &Hashnode{Hashkey: k, Elem: r, LastUpdate: time.Now().UTC()}
+}
 
 func NewHashring() *Hashring {
 
@@ -51,11 +65,35 @@ func (h *Hashring) Swap(i, j int) {
 	h.Hashnodes[i], h.Hashnodes[j] = h.Hashnodes[j], h.Hashnodes[i]
 }
 
+// ApplyDiff applies the given HashringDiff to the hashring.  New resources are
+// added, changed resources are updated, and gone resources are removed.
+func (h *Hashring) ApplyDiff(d *HashringDiff) {
+
+	for rType, resources := range d.New {
+		log.Printf("Adding %d resources of type %s.", len(resources), rType)
+		for _, r := range resources {
+			h.Add(r)
+		}
+	}
+	for rType, resources := range d.Changed {
+		log.Printf("Changing %d resources of type %s.", len(resources), rType)
+		for _, r := range resources {
+			h.ForceAdd(r)
+		}
+	}
+	for rType, resources := range d.Gone {
+		log.Printf("Removing %d resources of type %s.", len(resources), rType)
+		for _, r := range resources {
+			h.Remove(r)
+		}
+	}
+}
+
 // Diff determines the resources that are 1) in h1 but not h2 (new), 2) in both
 // h1 and h2 but changed, and 3) in h2 but not h1 (gone).
 func (h1 *Hashring) Diff(h2 *Hashring) *HashringDiff {
 
-	diff := &HashringDiff{}
+	diff := NewHashringDiff()
 
 	for _, n := range h1.Hashnodes {
 		r1 := n.Elem
@@ -63,14 +101,14 @@ func (h1 *Hashring) Diff(h2 *Hashring) *HashringDiff {
 		index, err := h2.getIndex(r1.Uid())
 		// The given resource is not present in h2, so it must be new.
 		if err != nil {
-			diff.New = append(diff.New, r1)
+			diff.New[r1.Name()] = append(diff.New[r1.Name()], r1)
 			continue
 		}
 
 		// The given resource is present.  Did it change, though?
 		r2 := h2.Hashnodes[index].Elem
 		if r1.Oid() != r2.Oid() {
-			diff.Changed = append(diff.Changed, r1)
+			diff.Changed[r1.Name()] = append(diff.Changed[r1.Name()], r1)
 		}
 	}
 
@@ -81,7 +119,7 @@ func (h1 *Hashring) Diff(h2 *Hashring) *HashringDiff {
 		_, err := h1.getIndex(r2.Uid())
 		// The given resource is not present in h1, so it must be gone.
 		if err != nil {
-			diff.Gone = append(diff.Gone, r2)
+			diff.Gone[r2.Name()] = append(diff.Gone[r2.Name()], r2)
 		}
 	}
 
@@ -89,13 +127,14 @@ func (h1 *Hashring) Diff(h2 *Hashring) *HashringDiff {
 }
 
 // Add adds the given resource to the hashring.  If the resource is already
-// present, an error is returned.
+// present, we update its timestamp and return an error.
 func (h *Hashring) Add(r Resource) error {
 	h.Lock()
 	defer h.Unlock()
 
 	// Does the hashring already have the resource?
-	if _, err := h.getIndex(r.Uid()); err == nil {
+	if i, err := h.getIndex(r.Uid()); err == nil {
+		h.Hashnodes[i].LastUpdate = time.Now().UTC()
 		return errors.New("resource already present in hashring")
 	}
 	// Run our "on-add" hook.
@@ -103,10 +142,25 @@ func (h *Hashring) Add(r Resource) error {
 		go h.OnAddFunc(r)
 	}
 
-	n := &Hashnode{r.Uid(), r}
+	n := NewHashnode(r.Uid(), r)
 	h.Hashnodes = append(h.Hashnodes, n)
 	sort.Sort(h)
 	return nil
+}
+
+func (h *Hashring) ForceAdd(r Resource) {
+	h.Lock()
+	defer h.Unlock()
+
+	// Does the hashring already have the resource?
+	if i, err := h.getIndex(r.Uid()); err == nil {
+		h.Hashnodes[i].LastUpdate = time.Now().UTC()
+		h.Hashnodes[i].Elem = r
+	} else {
+		n := NewHashnode(r.Uid(), r)
+		h.Hashnodes = append(h.Hashnodes, n)
+		sort.Sort(h)
+	}
 }
 
 // Remove removes the given resource from the hashring.  If the hashring is
@@ -211,4 +265,21 @@ func (h *Hashring) Filter(f FilterFunc) *Hashring {
 		}
 	}
 	return r
+}
+
+func (h *Hashring) Prune() []Resource {
+	h.Lock()
+	defer h.Unlock()
+
+	now := time.Now().UTC()
+	pruned := []Resource{}
+
+	for _, node := range h.Hashnodes {
+		if now.Sub(node.LastUpdate) > node.Elem.Expiry() {
+			pruned = append(pruned, node.Elem)
+			h.Remove(node.Elem)
+		}
+	}
+
+	return pruned
 }
