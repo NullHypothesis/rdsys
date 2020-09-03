@@ -62,6 +62,7 @@ func (b *BackendContext) InitBackend(cfg *Config) {
 
 	log.Println("Initialising backend.")
 	b.Config = cfg
+	// TODO: Move this to some kind of central "registry."
 	names := []string{"foo", "bar", "obfs4", "vanilla", "obfs2", "obfs3",
 		"scramblesuit", "meek", "snowflake", "websocket", "fte"}
 	b.Resources = *core.NewBackendResources(names, BuildStencil(cfg.Backend.DistProportions))
