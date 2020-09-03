@@ -21,47 +21,8 @@ import (
 // BackendContext contains the state that our backend requires.
 type BackendContext struct {
 	Config      *Config
-	Resources   ResourceCollection
+	Resources   core.BackendResources
 	bridgestrap delivery.Mechanism
-}
-
-type ResourceHook func(core.Resource) error
-
-// ResourceCollection maps a resource type (e.g., "obfs4") to a hashring
-// stencil.
-// TODO: This data structure may belong to a different layer of abstraction.
-type ResourceCollection struct {
-	StencilTemplate *core.Stencil
-	Collection      map[string]*core.SplitHashring
-}
-
-func (r ResourceCollection) Add(name string, resource core.Resource) {
-
-	rName := resource.Name()
-	_, exists := r.Collection[rName]
-	if !exists {
-		log.Printf("Creating new split hashring for resource %q.", rName)
-		r.Collection[rName] = core.NewSplitHashring()
-		r.Collection[rName].Stencil = *r.StencilTemplate
-		r.Collection[rName].OnAddFunc = func(r core.Resource) {
-		}
-	}
-	r.Collection[rName].Add(resource)
-}
-
-func (r ResourceCollection) Get(distName string, rType string) []core.Resource {
-
-	sHashring, exists := r.Collection[rType]
-	if !exists {
-		log.Printf("Requested resource type %q not present in our resource collection.", rType)
-		return []core.Resource{}
-	}
-
-	resources, err := sHashring.GetForDist(distName)
-	if err != nil {
-		log.Printf("Failed to get resources for distributor %q: %s", distName, err)
-	}
-	return resources
 }
 
 // startWebApi starts our Web server.
@@ -69,6 +30,7 @@ func (b *BackendContext) startWebApi(cfg *Config, srv *http.Server) {
 	log.Printf("Starting Web API at %s.", cfg.Backend.ApiAddress)
 
 	mux := http.NewServeMux()
+	mux.Handle(cfg.Backend.ResourceStreamEndpoint, http.HandlerFunc(b.resourcesHandler))
 	mux.Handle(cfg.Backend.ResourcesEndpoint, http.HandlerFunc(b.resourcesHandler))
 	mux.Handle(cfg.Backend.TargetsEndpoint, http.HandlerFunc(b.targetsHandler))
 	srv.Handler = mux
@@ -80,7 +42,7 @@ func (b *BackendContext) startWebApi(cfg *Config, srv *http.Server) {
 	} else {
 		err = srv.ListenAndServe()
 	}
-	log.Printf("Web server shut down: %s", err)
+	log.Printf("Web API shut down: %s", err)
 }
 
 // stopWebApi stops our Web server.
@@ -91,7 +53,7 @@ func (b *BackendContext) stopWebApi(srv *http.Server) {
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("Error while stopping Web API: %s", err)
+		log.Printf("Error while shutting down Web API: %s", err)
 	}
 }
 
@@ -100,8 +62,19 @@ func (b *BackendContext) InitBackend(cfg *Config) {
 
 	log.Println("Initialising backend.")
 	b.Config = cfg
-	b.Resources.Collection = make(map[string]*core.SplitHashring)
-	b.Resources.StencilTemplate = BuildStencil(cfg.Backend.DistProportions)
+	names := []string{"foo", "bar", "obfs4", "vanilla", "obfs2", "obfs3",
+		"scramblesuit", "meek", "snowflake", "websocket", "fte"}
+	b.Resources = *core.NewBackendResources(names, BuildStencil(cfg.Backend.DistProportions))
+
+	//torResources := GetTorBridgeTypes()
+	bridgestrapCtx := mechanisms.HttpsIpcContext{}
+	bridgestrapCtx.ApiEndpoint = cfg.Backend.BridgestrapEndpoint
+	bridgestrapCtx.ApiMethod = http.MethodGet
+
+	for _, rName := range names {
+		b.Resources.Collection[rName].OnAddFunc = queryBridgestrap(&bridgestrapCtx)
+	}
+
 	quit := make(chan bool)
 
 	var wg sync.WaitGroup
@@ -167,10 +140,12 @@ func (b *BackendContext) isAuthenticated(w http.ResponseWriter, r *http.Request)
 	// First, we take the bearer token from the 'Authorization' HTTP header.
 	tokenLine := r.Header.Get("Authorization")
 	if tokenLine == "" {
+		log.Printf("Request carries no 'Authorization' HTTP header.")
 		http.Error(w, "request carries no 'Authorization' HTTP header", http.StatusBadRequest)
 		return false
 	}
 	if !strings.HasPrefix(tokenLine, "Bearer ") {
+		log.Printf("Authorization header contains no bearer token.")
 		http.Error(w, "authorization header contains no bearer token", http.StatusBadRequest)
 		return false
 	}
@@ -183,9 +158,94 @@ func (b *BackendContext) isAuthenticated(w http.ResponseWriter, r *http.Request)
 			return true
 		}
 	}
+	log.Printf("Invalid authentication token.")
 	http.Error(w, "invalid authentication token", http.StatusUnauthorized)
 
 	return false
+}
+
+func (b *BackendContext) getResourceStreamHandler(w http.ResponseWriter, r *http.Request) {
+
+	if !b.isAuthenticated(w, r) {
+		return
+	}
+
+	req, err := extractResourceRequest(w, r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "http streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Transfer-Encoding", "chunked")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	diffs := make(chan *core.HashringDiff)
+	b.Resources.RegisterChan(req, diffs)
+	defer b.Resources.UnregisterChan(req.RequestOrigin, diffs)
+	defer close(diffs)
+
+	sendDiff := func(diff *core.HashringDiff) error {
+		jsonBlurb, err := json.Marshal(diff)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+
+		if _, err := fmt.Fprintf(w, string(jsonBlurb)); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return err
+		}
+		fmt.Fprintf(w, "\r") // delimiter
+		flusher.Flush()
+		return nil
+	}
+
+	log.Printf("Sending client initial batch of resources.")
+	resourceMap := b.processResourceRequest(req)
+	if err := sendDiff(&core.HashringDiff{New: resourceMap}); err != nil {
+		log.Printf("Error sending initial diff to client: %s.", err)
+	}
+
+	log.Printf("Entering streaming loop for %s.", r.RemoteAddr)
+	for {
+		select {
+		// Is our HTTP connection done?
+		case <-r.Context().Done():
+			log.Printf("Exiting streaming loop for %s.", r.RemoteAddr)
+			// Consume remaining hashring differences.
+			for {
+				select {
+				case diff := <-diffs:
+					log.Printf("Sending remaining hashring diff.")
+					sendDiff(diff)
+				default:
+					return
+				}
+			}
+		case diff := <-diffs:
+			if err := sendDiff(diff); err != nil {
+				log.Printf("Error sending diff to client: %s.", err)
+				break
+			}
+		}
+	}
+}
+
+func (b *BackendContext) processResourceRequest(req *core.ResourceRequest) core.ResourceMap {
+
+	resources := make(core.ResourceMap)
+	for _, rType := range req.ResourceTypes {
+		resources[rType] = b.Resources.Get(req.RequestOrigin, rType)
+	}
+
+	return resources
 }
 
 func (b *BackendContext) getResourcesHandler(w http.ResponseWriter, r *http.Request) {
@@ -194,22 +254,18 @@ func (b *BackendContext) getResourcesHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Here's how we can test the API using the command line:
-	// curl -X GET localhost:7100 -d '{"request_origin":"https","resource_types":["obfs4"]}'
 	req, err := extractResourceRequest(w, r)
 	if err != nil {
 		return
 	}
 	log.Printf("Distributor %q is asking for %q.", req.RequestOrigin, req.ResourceTypes)
 
-	// TODO: This needs to be re-architected to support a long-poll request
-	// model:
-	// https://lucasroesler.com/2018/07/golang-long-polling-a-tale-of-server-timeouts/
 	var resources []core.Resource
 	for _, rType := range req.ResourceTypes {
 		resources = append(resources, b.Resources.Get(req.RequestOrigin, rType)...)
 	}
-	log.Printf("Returning %d resources to distributor %q.", len(resources), req.RequestOrigin)
+	log.Printf("Returning %d resources of type %s to distributor %q.",
+		len(resources), req.ResourceTypes, req.RequestOrigin)
 
 	jsonBlurb, err := json.Marshal(resources)
 	if err != nil {
@@ -230,7 +286,13 @@ func (b *BackendContext) postResourcesHandler(w http.ResponseWriter, r *http.Req
 func (b *BackendContext) resourcesHandler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodGet {
-		b.getResourcesHandler(w, r)
+		if r.URL.Path == b.Config.Backend.ResourcesEndpoint {
+			b.getResourcesHandler(w, r)
+		} else if r.URL.Path == b.Config.Backend.ResourceStreamEndpoint {
+			b.getResourceStreamHandler(w, r)
+		} else {
+			log.Printf("Unknown endpoint: %s", r.URL.Path)
+		}
 	} else if r.Method == http.MethodPost {
 		b.postResourcesHandler(w, r)
 	} else {
