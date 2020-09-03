@@ -49,21 +49,22 @@ func NewBackendResources(rNames []string, stencil *Stencil) *BackendResources {
 // Add adds the given resource to the resource collection.  If the resource
 // already exists but has changed (i.e. its unique ID remains the same but its
 // object ID changed), we update the existing resource.
-func (ctx *BackendResources) Add(r Resource) {
+func (ctx *BackendResources) Add(r1 Resource) {
 
-	hashring := ctx.Collection[r.Name()]
-	if _, err := hashring.getIndex(r.Uid()); err != nil {
-		if _, err := hashring.getIndex(r.Oid()); err == nil {
-			// If the unique ID exists but the object ID doesn't, we're dealing
-			// with an updated resource.
-			ctx.propagateUpdate(r, ResourceChanged)
+	hashring := ctx.Collection[r1.Name()]
+	if i, err := hashring.getIndex(r1.Uid()); err == nil {
+		// The resource's unique ID already exists.  That means, the resource
+		// either remains the same, or it changed (i.e. its object ID differs).
+		r2 := hashring.Hashnodes[i].Elem
+		if r1.Oid() != r2.Oid() {
+			ctx.propagateUpdate(r1, ResourceChanged)
 		}
 	} else {
-		// If the unique ID doesn't exist, we're dealing with a new resource.
-		ctx.propagateUpdate(r, ResourceIsNew)
+		// The unique ID doesn't exist, so we're dealing with a new resource.
+		ctx.propagateUpdate(r1, ResourceIsNew)
 	}
 
-	hashring.ForceAdd(r)
+	hashring.ForceAdd(r1)
 }
 
 // Get returns a slice of resources of the requested type for the given
