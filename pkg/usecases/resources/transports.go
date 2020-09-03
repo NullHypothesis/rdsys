@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/crc64"
 	"strings"
+	"time"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 )
@@ -51,6 +52,12 @@ func (t *Transport) IsDepleted() bool {
 
 func (t *Transport) IsPublic() bool {
 	return false
+}
+
+func (t *Transport) Expiry() time.Duration {
+	// Bridges should upload new descriptors at least every 18 hours:
+	// https://gitweb.torproject.org/torspec.git/tree/dir-spec.txt?id=c2a584144330239d6aa032b0acfb8b5ba26719fb#n369
+	return time.Duration(time.Hour * 18)
 }
 
 func (t *Transport) Oid() core.Hashkey {

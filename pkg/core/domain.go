@@ -1,5 +1,9 @@
 package core
 
+import (
+	"time"
+)
+
 const (
 	StateUntested = iota
 	StateFunctional
@@ -26,6 +30,9 @@ type Resource interface {
 	Oid() Hashkey
 	SetState(int)
 	GetState() int
+	// Expiry returns the duration after which the resource should be deleted
+	// from the backend (if the backend hasn't received an update).
+	Expiry() time.Duration
 }
 
 type Requester interface {

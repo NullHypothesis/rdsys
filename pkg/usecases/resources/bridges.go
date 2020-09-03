@@ -123,6 +123,12 @@ func (b *Bridge) Name() string {
 	return b.Type
 }
 
+func (b *Bridge) Expiry() time.Duration {
+	// Bridges should upload new descriptors at least every 18 hours:
+	// https://gitweb.torproject.org/torspec.git/tree/dir-spec.txt?id=c2a584144330239d6aa032b0acfb8b5ba26719fb#n369
+	return time.Duration(time.Hour * 18)
+}
+
 func GetTorBridgeTypes() []string {
 	return []string{BridgeTypeVanilla, BridgeTypeObfs4}
 }
