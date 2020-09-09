@@ -97,5 +97,15 @@ type ResourceRequest struct {
 	Receiver      chan *HashringDiff `json:"-"`
 }
 
+func (r *ResourceRequest) HasResourceType(rType1 string) bool {
+
+	for _, rType2 := range r.ResourceTypes {
+		if rType1 == rType2 {
+			return true
+		}
+	}
+	return false
+}
+
 type Response struct {
 }
