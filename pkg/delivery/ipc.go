@@ -1,5 +1,11 @@
 package delivery
 
+import (
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
+)
+
 type Mechanism interface {
-	MakeRequest(interface{}, interface{}) error
+	StartStream(*core.ResourceRequest)
+	StopStream()
+	MakeJsonRequest(interface{}, interface{}) error
 }

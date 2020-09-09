@@ -41,10 +41,8 @@ type Requester interface {
 	// Location     *Location
 }
 
-type IpcMechanism interface {
-	// Allows distributors to periodically fetch updated resources.
-	RequestResources(*ResourceRequest, interface{}) error
-}
+// ResourceMap maps a resource type to a slice of respective resources.
+type ResourceMap map[string][]Resource
 
 // CountryCode holds an ISO 3166-1 alpha-2 country code, e.g., "AR".
 type CountryCode string
@@ -93,8 +91,10 @@ func (r *ResourceBase) SetBlockedIn(l *Location) {
 
 type ResourceRequest struct {
 	// Name of requesting distributor.
-	RequestOrigin string   `json:"request_origin"`
-	ResourceTypes []string `json:"resource_types"`
+	RequestOrigin string             `json:"request_origin"`
+	ResourceTypes []string           `json:"resource_types"`
+	BearerToken   string             `json:"-"`
+	Receiver      chan *HashringDiff `json:"-"`
 }
 
 type Response struct {

@@ -14,10 +14,6 @@ import (
 )
 
 const (
-	BridgeTypeVanilla      = "vanilla"
-	BridgeTypeObfs4        = "obfs4"
-	BridgeTypeScrambleSuit = "scramblesuit"
-
 	ProtoTypeTCP = "tcp"
 	ProtoTypeUDP = "udp"
 
@@ -82,7 +78,7 @@ func NewBridge() *Bridge {
 	// A bridge (without pluggable transports) is always running vanilla Tor
 	// over TCP.
 	b.Protocol = ProtoTypeTCP
-	b.Type = BridgeTypeVanilla
+	b.Type = ResourceTypeVanilla
 	return b
 }
 
@@ -130,5 +126,5 @@ func (b *Bridge) Expiry() time.Duration {
 }
 
 func GetTorBridgeTypes() []string {
-	return []string{BridgeTypeVanilla, BridgeTypeObfs4}
+	return []string{ResourceTypeVanilla, ResourceTypeObfs4}
 }

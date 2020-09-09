@@ -67,13 +67,10 @@ func (b *BackendContext) InitBackend(cfg *Config) {
 		"scramblesuit", "meek", "snowflake", "websocket", "fte"}
 	b.Resources = *core.NewBackendResources(names, BuildStencil(cfg.Backend.DistProportions))
 
-	//torResources := GetTorBridgeTypes()
-	bridgestrapCtx := mechanisms.HttpsIpcContext{}
-	bridgestrapCtx.ApiEndpoint = cfg.Backend.BridgestrapEndpoint
-	bridgestrapCtx.ApiMethod = http.MethodGet
+	bridgestrapCtx := mechanisms.NewHttpsIpc(cfg.Backend.BridgestrapEndpoint)
 
 	for _, rName := range names {
-		b.Resources.Collection[rName].OnAddFunc = queryBridgestrap(&bridgestrapCtx)
+		b.Resources.Collection[rName].OnAddFunc = queryBridgestrap(bridgestrapCtx)
 	}
 
 	quit := make(chan bool)
@@ -193,7 +190,7 @@ func (b *BackendContext) getResourceStreamHandler(w http.ResponseWriter, r *http
 	defer close(diffs)
 
 	sendDiff := func(diff *core.HashringDiff) error {
-		jsonBlurb, err := json.Marshal(diff)
+		jsonBlurb, err := json.MarshalIndent(diff, "", "    ")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return err

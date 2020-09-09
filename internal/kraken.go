@@ -52,7 +52,6 @@ func InitKraken(cfg *Config, shutdown chan bool, ready chan bool, rcol core.Back
 		case <-ticker.C:
 			log.Println("Kraken's ticker is ticking.")
 			reloadBridgeDescriptors(cfg.Backend.ExtrainfoFile, rcol)
-
 			pruneExpiredResources(rcol)
 		}
 	}
@@ -74,7 +73,7 @@ func queryBridgestrap(m delivery.Mechanism) core.OnAddFunc {
 		req := BridgestrapRequest{r.String()}
 		resp := BridgestrapResponse{}
 		// This request can take several minutes to complete.
-		if err := m.MakeRequest(req, &resp); err != nil {
+		if err := m.MakeJsonRequest(req, &resp); err != nil {
 			log.Printf("Request failed because: %s", err)
 			return
 		}
@@ -102,7 +101,7 @@ func reloadBridgeDescriptors(extrainfoFile string, rcol core.BackendResources) {
 		log.Printf("Successfully reloaded %d bridge descriptors.", len(res))
 	}
 
-	log.Println("Adding new resources.")
+	log.Printf("Adding %d new resources.", len(res))
 	for _, resource := range res {
 		rcol.Add(resource)
 	}
