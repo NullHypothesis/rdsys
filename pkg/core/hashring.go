@@ -273,8 +273,6 @@ func (h *Hashring) Filter(f FilterFunc) *Hashring {
 
 // Prune prunes and returns expired resources from the hashring.
 func (h *Hashring) Prune() []Resource {
-	h.Lock()
-	defer h.Unlock()
 
 	now := time.Now().UTC()
 	pruned := []Resource{}
