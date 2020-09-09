@@ -248,7 +248,9 @@ func (h *Hashring) GetMany(k Hashkey, num int) ([]Resource, error) {
 	return resources, nil
 }
 
+// GetAll returns all of the hashring's resources.
 func (h *Hashring) GetAll() []Resource {
+
 	var elems []Resource
 	for _, node := range h.Hashnodes {
 		elems = append(elems, node.Elem)
@@ -256,6 +258,8 @@ func (h *Hashring) GetAll() []Resource {
 	return elems
 }
 
+// Filter filters the resources of this hashring with the given filter function
+// and returns the remaining resources as another hashring.
 func (h *Hashring) Filter(f FilterFunc) *Hashring {
 
 	r := &Hashring{}
@@ -267,6 +271,7 @@ func (h *Hashring) Filter(f FilterFunc) *Hashring {
 	return r
 }
 
+// Prune prunes and returns expired resources from the hashring.
 func (h *Hashring) Prune() []Resource {
 	h.Lock()
 	defer h.Unlock()
