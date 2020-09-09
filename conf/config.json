@@ -1,8 +1,10 @@
 {
     "backend": {
         "extrainfo_file": "cached-extrainfo",
+        "bridgestrap_endpoint": "http://127.0.0.1:5000/bridge-state",
         "api_address": "127.0.0.1:7100",
         "api_endpoint_resources": "/resources",
+        "api_endpoint_resource_stream": "/resource-stream",
         "api_endpoint_targets": "/targets",
         "api_tokens": ["foo", "bar"],
         "certfile": "",
