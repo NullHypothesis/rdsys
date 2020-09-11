@@ -20,6 +20,7 @@ type Resource interface {
 	String() string
 	IsDepleted() bool
 	IsPublic() bool
+	IsValid() bool
 	// Uid returns the resource's unique identifier.  Bridges with different
 	// fingerprints have different unique identifiers.
 	Uid() Hashkey
@@ -58,6 +59,7 @@ type Location struct {
 }
 
 type ResourceBase struct {
+	Type      string `json:"type"`
 	Location  *Location
 	Id        uint
 	BlockedIn map[CountryCode]bool

@@ -49,7 +49,6 @@ type Bridges struct {
 // Bridge represents a Tor bridge.
 type Bridge struct {
 	core.ResourceBase
-	Type        string           `json:"type"`
 	Protocol    string           `json:"protocol"`
 	Address     IPAddr           `json:"address"`
 	Port        uint16           `json:"port"`
@@ -91,6 +90,10 @@ func (b *Bridge) AddTransport(t1 *Transport) {
 		}
 	}
 	b.Transports = append(b.Transports, t1)
+}
+
+func (b *Bridge) IsValid() bool {
+	return b.Type != "" && b.Address.String() != "" && b.Port != 0
 }
 
 func (b *Bridge) GetBridgeLine() string {

@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -277,41 +278,65 @@ func (b *BackendContext) getResourcesHandler(w http.ResponseWriter, r *http.Requ
 	fmt.Fprintln(w, string(jsonBlurb))
 }
 
-func (b *BackendContext) postResourcesHandler(w http.ResponseWriter, r *http.Request) {
+func UnmarshalResources(rawResources []json.RawMessage) ([]core.Resource, error) {
 
-	body, err := ioutil.ReadAll(r.Body)
+	rs := []core.Resource{}
+	for _, rawResource := range rawResources {
+		base := core.ResourceBase{}
+		if err := json.Unmarshal(rawResource, &base); err != nil {
+			return nil, err
+		}
+
+		if base.Type == "" {
+			return nil, errors.New("missing \"type\" field")
+		}
+
+		rFunc, ok := resources.ResourceMap[base.Type]
+		if !ok {
+			return nil, fmt.Errorf("resource type %q not implemented", base.Type)
+		}
+		r := rFunc()
+
+		if err := json.Unmarshal(rawResource, r); err != nil {
+			return nil, errors.New("failed to unmarshal resource struct")
+		}
+		if r.(core.Resource).IsValid() {
+			rs = append(rs, r.(core.Resource))
+		} else {
+			return nil, fmt.Errorf("resource %q is not valid", base.Type)
+		}
+	}
+
+	return rs, nil
+}
+
+func (b *BackendContext) postResourcesHandler(w http.ResponseWriter, req *http.Request) {
+
+	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		log.Printf("Error reading HTTP body of %s: %s", r.RemoteAddr, err)
-		http.Error(w, "failed to read HTTP body", http.StatusBadRequest)
+		log.Printf("Error reading %s's request body: %s", req.RemoteAddr, err)
+		http.Error(w, "failed to read request body", http.StatusInternalServerError)
 		return
 	}
 
-	// Start by unmarshalling the resource base which is shared by all
-	// resources.  We only care about the "type" field because it helps us
-	// decide how we should unmarshal the remaining JSON.
-	base := &core.ResourceBase{}
-	if err := json.Unmarshal(body, base); err != nil {
-		log.Printf("Error unmarshalling %s's resource type: %s", r.RemoteAddr, err)
-		http.Error(w, "failed to unmarshal resource type", http.StatusBadRequest)
+	rawResources := []json.RawMessage{}
+	if err := json.Unmarshal(body, &rawResources); err != nil {
+		log.Printf("Error unmarshalling %s's raw resources: %s", req.RemoteAddr, err)
+		http.Error(w, "failed to unmarshal raw resources", http.StatusBadRequest)
 		return
 	}
 
-	resourceFunc, ok := resources.ResourceMap[base.Type]
-	if !ok {
-		log.Printf("Error obtaining struct for resource type %q for %s.", base.Type, r.RemoteAddr)
-		http.Error(w, "given resource type not implemented", http.StatusNotImplemented)
-		return
-	}
-	resource := resourceFunc()
-
-	if err := json.Unmarshal(body, resource); err != nil {
-		log.Printf("Error unmarshalling %s's resource struct: %s", r.RemoteAddr, err)
-		http.Error(w, "failed to unmarshal resource struct", http.StatusBadRequest)
+	rs, err := UnmarshalResources(rawResources)
+	if err != nil {
+		log.Printf("Error unmarshalling %s's resources: %s", req.RemoteAddr, err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	b.Resources.Add(resource.(core.Resource))
-	log.Printf("Added %s's %q resource to collection.", r.RemoteAddr, base.Type)
+	for _, r := range rs {
+		b.Resources.Add(r)
+		log.Printf("Added %s's %q resource to collection.", req.RemoteAddr, r.Name())
+	}
 }
 
 // resourcesHandler handles requests coming from distributors (if it's GET
