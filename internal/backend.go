@@ -16,6 +16,7 @@ import (
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery/mechanisms"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
 
 // BackendContext contains the state that our backend requires.
@@ -62,15 +63,16 @@ func (b *BackendContext) InitBackend(cfg *Config) {
 
 	log.Println("Initialising backend.")
 	b.Config = cfg
-	// TODO: Move this to some kind of central "registry."
-	names := []string{"foo", "bar", "obfs4", "vanilla", "obfs2", "obfs3",
-		"scramblesuit", "meek", "snowflake", "websocket", "fte"}
-	b.Resources = *core.NewBackendResources(names, BuildStencil(cfg.Backend.DistProportions))
+	rTypes := []string{}
+	for rType, _ := range resources.ResourceMap {
+		rTypes = append(rTypes, rType)
+	}
+	b.Resources = *core.NewBackendResources(rTypes, BuildStencil(cfg.Backend.DistProportions))
 
 	bridgestrapCtx := mechanisms.NewHttpsIpc(cfg.Backend.BridgestrapEndpoint)
 
-	for _, rName := range names {
-		b.Resources.Collection[rName].OnAddFunc = queryBridgestrap(bridgestrapCtx)
+	for _, rType := range rTypes {
+		b.Resources.Collection[rType].OnAddFunc = queryBridgestrap(bridgestrapCtx)
 	}
 
 	quit := make(chan bool)
@@ -276,24 +278,58 @@ func (b *BackendContext) getResourcesHandler(w http.ResponseWriter, r *http.Requ
 }
 
 func (b *BackendContext) postResourcesHandler(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not yet implemented", http.StatusInternalServerError)
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Error reading HTTP body of %s: %s", r.RemoteAddr, err)
+		http.Error(w, "failed to read HTTP body", http.StatusBadRequest)
+		return
+	}
+
+	// Start by unmarshalling the resource base which is shared by all
+	// resources.  We only care about the "type" field because it helps us
+	// decide how we should unmarshal the remaining JSON.
+	base := &core.ResourceBase{}
+	if err := json.Unmarshal(body, base); err != nil {
+		log.Printf("Error unmarshalling %s's resource type: %s", r.RemoteAddr, err)
+		http.Error(w, "failed to unmarshal resource type", http.StatusBadRequest)
+		return
+	}
+
+	resourceFunc, ok := resources.ResourceMap[base.Type]
+	if !ok {
+		log.Printf("Error obtaining struct for resource type %q for %s.", base.Type, r.RemoteAddr)
+		http.Error(w, "given resource type not implemented", http.StatusNotImplemented)
+		return
+	}
+	resource := resourceFunc()
+
+	if err := json.Unmarshal(body, resource); err != nil {
+		log.Printf("Error unmarshalling %s's resource struct: %s", r.RemoteAddr, err)
+		http.Error(w, "failed to unmarshal resource struct", http.StatusBadRequest)
+		return
+	}
+
+	b.Resources.Add(resource.(core.Resource))
+	log.Printf("Added %s's %q resource to collection.", r.RemoteAddr, base.Type)
 }
 
 // resourcesHandler handles requests coming from distributors (if it's GET
 // requests) and from proxies (if it's POST requests).
 func (b *BackendContext) resourcesHandler(w http.ResponseWriter, r *http.Request) {
 
-	if r.Method == http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
 		if r.URL.Path == b.Config.Backend.ResourcesEndpoint {
 			b.getResourcesHandler(w, r)
 		} else if r.URL.Path == b.Config.Backend.ResourceStreamEndpoint {
 			b.getResourceStreamHandler(w, r)
-		} else {
-			log.Printf("Unknown endpoint: %s", r.URL.Path)
 		}
-	} else if r.Method == http.MethodPost {
-		b.postResourcesHandler(w, r)
-	} else {
+	case http.MethodPost:
+		if r.URL.Path == b.Config.Backend.ResourcesEndpoint {
+			b.postResourcesHandler(w, r)
+		}
+	default:
 		log.Printf("Received unsupported request method %q from %s.", r.Method, r.RemoteAddr)
 		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
 	}
