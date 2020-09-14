@@ -278,6 +278,8 @@ func (b *BackendContext) getResourcesHandler(w http.ResponseWriter, r *http.Requ
 	fmt.Fprintln(w, string(jsonBlurb))
 }
 
+// UnmarshalResources unmarshals a slice of raw JSON messages into the
+// corresponding resources.
 func UnmarshalResources(rawResources []json.RawMessage) ([]core.Resource, error) {
 
 	rs := []core.Resource{}
@@ -300,16 +302,18 @@ func UnmarshalResources(rawResources []json.RawMessage) ([]core.Resource, error)
 		if err := json.Unmarshal(rawResource, r); err != nil {
 			return nil, errors.New("failed to unmarshal resource struct")
 		}
-		if r.(core.Resource).IsValid() {
-			rs = append(rs, r.(core.Resource))
-		} else {
+
+		if !r.(core.Resource).IsValid() {
 			return nil, fmt.Errorf("resource %q is not valid", base.Type)
 		}
+		rs = append(rs, r.(core.Resource))
 	}
 
 	return rs, nil
 }
 
+// postResourcesHandler handles POST requests that register a resource with our
+// backend.
 func (b *BackendContext) postResourcesHandler(w http.ResponseWriter, req *http.Request) {
 
 	body, err := ioutil.ReadAll(req.Body)
