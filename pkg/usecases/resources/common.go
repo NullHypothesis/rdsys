@@ -10,14 +10,28 @@ const (
 	Crc64Polynomial = 0x42F0E1EBA9EA3693
 
 	ResourceTypeVanilla      = "vanilla"
+	ResourceTypeObfs2        = "obfs2"
+	ResourceTypeObfs3        = "obfs3"
 	ResourceTypeObfs4        = "obfs4"
 	ResourceTypeScrambleSuit = "scramblesuit"
+	ResourceTypeMeek         = "meek"
+	ResourceTypeSnowflake    = "snowflake"
+	ResourceTypeWebSocket    = "websocket"
+	ResourceTypeFTE          = "fte"
+	ResourceTypeHTTPT        = "httpt"
 )
 
 var ResourceMap = map[string]func() interface{}{
+	ResourceTypeVanilla:      func() interface{} { return NewBridge() },
+	ResourceTypeObfs2:        func() interface{} { return NewTransport() },
+	ResourceTypeObfs3:        func() interface{} { return NewTransport() },
 	ResourceTypeObfs4:        func() interface{} { return NewTransport() },
 	ResourceTypeScrambleSuit: func() interface{} { return NewTransport() },
-	ResourceTypeVanilla:      func() interface{} { return NewBridge() },
+	ResourceTypeMeek:         func() interface{} { return NewTransport() },
+	ResourceTypeSnowflake:    func() interface{} { return NewTransport() },
+	ResourceTypeWebSocket:    func() interface{} { return NewTransport() },
+	ResourceTypeFTE:          func() interface{} { return NewTransport() },
+	ResourceTypeHTTPT:        func() interface{} { return NewTransport() },
 }
 
 type TmpHashringDiff struct {

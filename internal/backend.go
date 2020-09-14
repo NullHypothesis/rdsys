@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -16,6 +17,7 @@ import (
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery/mechanisms"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
 
 // BackendContext contains the state that our backend requires.
@@ -62,15 +64,16 @@ func (b *BackendContext) InitBackend(cfg *Config) {
 
 	log.Println("Initialising backend.")
 	b.Config = cfg
-	// TODO: Move this to some kind of central "registry."
-	names := []string{"foo", "bar", "obfs4", "vanilla", "obfs2", "obfs3",
-		"scramblesuit", "meek", "snowflake", "websocket", "fte"}
-	b.Resources = *core.NewBackendResources(names, BuildStencil(cfg.Backend.DistProportions))
+	rTypes := []string{}
+	for rType, _ := range resources.ResourceMap {
+		rTypes = append(rTypes, rType)
+	}
+	b.Resources = *core.NewBackendResources(rTypes, BuildStencil(cfg.Backend.DistProportions))
 
 	bridgestrapCtx := mechanisms.NewHttpsIpc(cfg.Backend.BridgestrapEndpoint)
 
-	for _, rName := range names {
-		b.Resources.Collection[rName].OnAddFunc = queryBridgestrap(bridgestrapCtx)
+	for _, rType := range rTypes {
+		b.Resources.Collection[rType].OnAddFunc = queryBridgestrap(bridgestrapCtx)
 	}
 
 	quit := make(chan bool)
@@ -275,25 +278,87 @@ func (b *BackendContext) getResourcesHandler(w http.ResponseWriter, r *http.Requ
 	fmt.Fprintln(w, string(jsonBlurb))
 }
 
-func (b *BackendContext) postResourcesHandler(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not yet implemented", http.StatusInternalServerError)
+// UnmarshalResources unmarshals a slice of raw JSON messages into the
+// corresponding resources.
+func UnmarshalResources(rawResources []json.RawMessage) ([]core.Resource, error) {
+
+	rs := []core.Resource{}
+	for _, rawResource := range rawResources {
+		base := core.ResourceBase{}
+		if err := json.Unmarshal(rawResource, &base); err != nil {
+			return nil, err
+		}
+
+		if base.Type == "" {
+			return nil, errors.New("missing \"type\" field")
+		}
+
+		rFunc, ok := resources.ResourceMap[base.Type]
+		if !ok {
+			return nil, fmt.Errorf("resource type %q not implemented", base.Type)
+		}
+		r := rFunc()
+
+		if err := json.Unmarshal(rawResource, r); err != nil {
+			return nil, errors.New("failed to unmarshal resource struct")
+		}
+
+		if !r.(core.Resource).IsValid() {
+			return nil, fmt.Errorf("resource %q is not valid", base.Type)
+		}
+		rs = append(rs, r.(core.Resource))
+	}
+
+	return rs, nil
+}
+
+// postResourcesHandler handles POST requests that register a resource with our
+// backend.
+func (b *BackendContext) postResourcesHandler(w http.ResponseWriter, req *http.Request) {
+
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		log.Printf("Error reading %s's request body: %s", req.RemoteAddr, err)
+		http.Error(w, "failed to read request body", http.StatusInternalServerError)
+		return
+	}
+
+	rawResources := []json.RawMessage{}
+	if err := json.Unmarshal(body, &rawResources); err != nil {
+		log.Printf("Error unmarshalling %s's raw resources: %s", req.RemoteAddr, err)
+		http.Error(w, "failed to unmarshal raw resources", http.StatusBadRequest)
+		return
+	}
+
+	rs, err := UnmarshalResources(rawResources)
+	if err != nil {
+		log.Printf("Error unmarshalling %s's resources: %s", req.RemoteAddr, err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	for _, r := range rs {
+		b.Resources.Add(r)
+		log.Printf("Added %s's %q resource to collection.", req.RemoteAddr, r.Name())
+	}
 }
 
 // resourcesHandler handles requests coming from distributors (if it's GET
 // requests) and from proxies (if it's POST requests).
 func (b *BackendContext) resourcesHandler(w http.ResponseWriter, r *http.Request) {
 
-	if r.Method == http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
 		if r.URL.Path == b.Config.Backend.ResourcesEndpoint {
 			b.getResourcesHandler(w, r)
 		} else if r.URL.Path == b.Config.Backend.ResourceStreamEndpoint {
 			b.getResourceStreamHandler(w, r)
-		} else {
-			log.Printf("Unknown endpoint: %s", r.URL.Path)
 		}
-	} else if r.Method == http.MethodPost {
-		b.postResourcesHandler(w, r)
-	} else {
+	case http.MethodPost:
+		if r.URL.Path == b.Config.Backend.ResourcesEndpoint {
+			b.postResourcesHandler(w, r)
+		}
+	default:
 		log.Printf("Received unsupported request method %q from %s.", r.Method, r.RemoteAddr)
 		http.Error(w, "invalid request method", http.StatusMethodNotAllowed)
 	}

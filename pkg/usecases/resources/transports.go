@@ -12,7 +12,6 @@ import (
 // Transport represents a Tor bridge's pluggable transport.
 type Transport struct {
 	core.ResourceBase
-	Type        string            `json:"type"`
 	Protocol    string            `json:"protocol"`
 	Address     IPAddr            `json:"address"`
 	Port        uint16            `json:"port"`
@@ -40,6 +39,10 @@ func (t *Transport) String() string {
 	}
 
 	return fmt.Sprintf("%s %s:%d %s %s", t.Type, t.Address.String(), t.Port, t.Fingerprint, strings.Join(args, " "))
+}
+
+func (t *Transport) IsValid() bool {
+	return t.Type != "" && t.Address.String() != "" && t.Port != 0
 }
 
 func (t *Transport) Name() string {
