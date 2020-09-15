@@ -13,8 +13,9 @@ func setup() *SalmonDistributor {
 	p2 := &Proxy{}
 	p3 := &Proxy{}
 	p4 := &Proxy{}
-	salmon.AssignedProxies = []core.Resource{p1, p2, p3}
-	salmon.UnassignedProxies = []core.Resource{p4}
+
+	salmon.AssignedProxies = core.ResourceMap{"obfs4": []core.Resource{p1, p2, p3}}
+	salmon.UnassignedProxies = core.ResourceMap{"obfs4": []core.Resource{p4}}
 
 	u1 := &User{}
 	u2 := &User{}

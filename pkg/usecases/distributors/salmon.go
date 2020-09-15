@@ -8,10 +8,10 @@ package distributors
 import (
 	"crypto/rand"
 	"encoding/base32"
+	"encoding/json"
 	"errors"
 	"log"
 	"math"
-	"net/http"
 	"sync"
 	"time"
 
@@ -19,15 +19,15 @@ import (
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/internal"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery/mechanisms"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
 
 const (
 	SalmonDistName = "salmon"
-	// In the Salmon paper, this threshold is referred to as "T".  Simulation
-	// results suggest T = 1/3:
-	// <https://censorbib.nymity.ch/pdf/Douglas2016a.pdf#page=7>
+	// The Salmon paper calls this threshold "T".  Simulation results suggest T
+	// = 1/3: <https://censorbib.nymity.ch/pdf/Douglas2016a.pdf#page=7>
 	MaxSuspicion = 0.333
 	// MaxTrustLevel represents the maximum trust level that a user can get
 	// promoted to.  The paper refers to the maximum trust level as "L" and
@@ -48,12 +48,16 @@ const (
 // SalmonDistributor contains all the context that the distributor needs to
 // run.
 type SalmonDistributor struct {
-	ipc               core.IpcMechanism
+	ipc      delivery.Mechanism
+	cfg      *internal.Config
+	wg       sync.WaitGroup
+	shutdown chan bool
+
 	TokenCache        map[string]*TokenMetaInfo
 	TokenCacheMutex   sync.Mutex
 	Users             map[int]*User
-	AssignedProxies   []core.Resource
-	UnassignedProxies []core.Resource
+	AssignedProxies   core.ResourceMap
+	UnassignedProxies core.ResourceMap
 }
 
 // Trust represents the level of trust we have for a user or proxy.
@@ -78,7 +82,7 @@ type User struct {
 	// our suspicion threshold.
 	Innocence float64
 	Trust     Trust
-	InvitedBy *User
+	InvitedBy *User `json:"-"` // We have to omit this field to prevent cycles.
 	Invited   []*User
 	Proxies   []core.Resource
 	// The last time the user got promoted to a higher trust level.
@@ -134,24 +138,24 @@ func (s *SalmonDistributor) Init(cfg *internal.Config) {
 	log.Printf("Initialising %s distributor.", SalmonDistName)
 
 	s.NewUser(UntouchableTrustLevel, 0)
+	s.cfg = cfg
+	s.shutdown = make(chan bool)
+	s.AssignedProxies = make(core.ResourceMap)
+	s.UnassignedProxies = make(core.ResourceMap)
 
-	// Request resources from our backend.
-	httpsIpc := &mechanisms.HttpsIpcContext{}
-	httpsIpc.ApiEndpoint = "http://" + cfg.Backend.ApiAddress + cfg.Backend.ResourcesEndpoint
-	httpsIpc.ApiMethod = http.MethodGet
-	s.ipc = httpsIpc
-
-	var obfs4Bridges []*resources.Transport
-	req := core.ResourceRequest{SalmonDistName, []string{"obfs4"}}
-	if err := s.ipc.RequestResources(&req, &obfs4Bridges); err != nil {
-		log.Printf("Error while requesting resources: %s", err)
+	log.Printf("Initialising resource stream.")
+	s.ipc = mechanisms.NewHttpsIpc("http://" + cfg.Backend.ApiAddress + cfg.Backend.ResourceStreamEndpoint)
+	rStream := make(chan *core.HashringDiff)
+	req := core.ResourceRequest{
+		RequestOrigin: SalmonDistName,
+		ResourceTypes: s.cfg.Distributors.Salmon.Resources,
+		BearerToken:   s.cfg.Backend.ApiTokens[SalmonDistName],
+		Receiver:      rStream,
 	}
-	log.Printf("Got %d unassigned proxies.", len(obfs4Bridges))
+	s.ipc.StartStream(&req)
 
-	// https://golang.org/doc/faq#convert_slice_of_interface
-	for _, bridge := range obfs4Bridges {
-		s.UnassignedProxies = append(s.UnassignedProxies, bridge)
-	}
+	s.wg.Add(1)
+	go s.Housekeeping(rStream)
 
 	s.TokenCacheMutex.Lock()
 	defer s.TokenCacheMutex.Unlock()
@@ -162,16 +166,19 @@ func (s *SalmonDistributor) Init(cfg *internal.Config) {
 }
 
 // Shutdown shuts down the given Salmon distributor.
-func (s *SalmonDistributor) Shutdown(cfg *internal.Config) {
+func (s *SalmonDistributor) Shutdown() {
 
+	// Write our token cache to disk so it can persist across restarts.
 	s.TokenCacheMutex.Lock()
 	defer s.TokenCacheMutex.Unlock()
-	err := internal.Serialise(cfg.Distributors.Salmon.WorkingDirectory+TokenCacheFile, s.TokenCache)
+	err := internal.Serialise(s.cfg.Distributors.Salmon.WorkingDirectory+TokenCacheFile, s.TokenCache)
 	if err != nil {
 		log.Printf("Warning: Failed to serialise token cache: %s", err)
 	}
 
-	log.Printf("Exiting.")
+	// Signal to housekeeping that it's time to stop.
+	close(s.shutdown)
+	s.wg.Wait()
 }
 
 // IsDepleted returns true if the proxy reached its capacity and can no longer
@@ -209,7 +216,7 @@ func findAssignedProxies(inviter *User) []core.Resource {
 	return proxies
 }
 
-func (s *SalmonDistributor) findProxies(invitee *User) []core.Resource {
+func (s *SalmonDistributor) findProxies(invitee *User, rType string) []core.Resource {
 
 	if invitee == nil {
 		return nil
@@ -231,13 +238,13 @@ func (s *SalmonDistributor) findProxies(invitee *User) []core.Resource {
 	if len(s.UnassignedProxies) < numRemaining {
 		numRemaining = len(s.UnassignedProxies)
 	}
-	newProxies := s.UnassignedProxies[:numRemaining]
-	s.UnassignedProxies = s.UnassignedProxies[numRemaining:]
+	newProxies := s.UnassignedProxies[rType][:numRemaining]
+	s.UnassignedProxies[rType] = s.UnassignedProxies[rType][numRemaining:]
 	log.Printf("Not enough assigned proxies; allocated %d unassigned proxies, %d remaining",
 		len(newProxies), len(s.UnassignedProxies))
 
 	for _, p := range newProxies {
-		s.AssignedProxies = append(s.AssignedProxies, p)
+		s.AssignedProxies[rType] = append(s.AssignedProxies[rType], p)
 		invitee.Proxies = append(invitee.Proxies, p)
 		proxies = append(proxies, p)
 	}
@@ -246,11 +253,15 @@ func (s *SalmonDistributor) findProxies(invitee *User) []core.Resource {
 }
 
 // GetProxies attempts to return proxies for the given user.
-func (s *SalmonDistributor) GetProxies(userId int) ([]core.Resource, error) {
+func (s *SalmonDistributor) GetProxies(userId int, rType string) ([]core.Resource, error) {
 
 	user, exists := s.Users[userId]
 	if !exists {
 		return nil, errors.New("user ID does not exists")
+	}
+
+	if _, exists := resources.ResourceMap[rType]; !exists {
+		return nil, errors.New("requested resource type does not exist")
 	}
 
 	if user.Banned {
@@ -262,18 +273,30 @@ func (s *SalmonDistributor) GetProxies(userId int) ([]core.Resource, error) {
 		return user.Proxies, nil
 	}
 
-	return s.findProxies(user), nil
+	return s.findProxies(user, rType), nil
 }
 
 // Housekeeping keeps track of periodic tasks.
-func (s *SalmonDistributor) Housekeeping(shutdown chan bool) {
+func (s *SalmonDistributor) Housekeeping(rStream chan *core.HashringDiff) {
 
+	defer s.wg.Done()
+	defer close(rStream)
+	defer s.ipc.StopStream()
 	ticker := time.NewTicker(SalmonTickerInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-shutdown:
+		case diff := <-rStream:
+			log.Printf("Got diff with %d new, %d changed, and %d gone resource type.",
+				len(diff.New), len(diff.Changed), len(diff.Gone))
+			s.UnassignedProxies.ApplyDiff(diff)
+			diff.New = nil
+			s.AssignedProxies.ApplyDiff(diff)
+			// TODO: Deal with proxy assignments.
+			log.Printf("Unassigned proxies: %s; assigned proxies: %s", s.UnassignedProxies, s.AssignedProxies)
+		case <-s.shutdown:
+			log.Printf("Shutting down housekeeping.")
 			return
 		case <-ticker.C:
 			// Iterate over all users and proxies and update their trust levels if
@@ -283,8 +306,10 @@ func (s *SalmonDistributor) Housekeeping(shutdown chan bool) {
 				user.UpdateTrust()
 			}
 			log.Printf("Updating trust levels of %d proxies.", len(s.AssignedProxies))
-			for _, proxy := range s.AssignedProxies {
-				proxy.(*Proxy).UpdateTrust()
+			for _, proxies := range s.AssignedProxies {
+				for _, proxy := range proxies {
+					proxy.(*Proxy).UpdateTrust()
+				}
 			}
 			log.Printf("Pruning token cache.")
 			s.pruneTokenCache()
