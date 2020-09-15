@@ -35,7 +35,12 @@ func ProxiesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "'id' field not a number", http.StatusBadRequest)
 		return
 	}
-	proxies, err := salmon.GetProxies(id)
+	rType, ok := r.Form["type"]
+	if !ok {
+		http.Error(w, "no field 'type' given", http.StatusBadRequest)
+		return
+	}
+	proxies, err := salmon.GetProxies(id, rType[0])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
