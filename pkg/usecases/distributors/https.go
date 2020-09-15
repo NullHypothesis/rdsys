@@ -3,6 +3,7 @@ package distributors
 import (
 	"context"
 	"fmt"
+	"hash/crc64"
 	"log"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery/mechanisms"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
 
 const (
@@ -73,6 +75,25 @@ func (d *HttpsDistributor) periodicTasks(wg *sync.WaitGroup) {
 	}
 }
 
+// mapRequestToHashkey maps the given HTTP request to a hash key.  It does so
+// by taking the /16 of the client's IP address.  For example, if the client's
+// address is 1.2.3.4, the function turns it into 1.2., computes its CRC64, and
+// returns the resulting hash key.
+func (d *HttpsDistributor) mapRequestToHashkey(r *http.Request) core.Hashkey {
+
+	i := 0
+	for numDots := 0; i < len(r.RemoteAddr) && numDots < 2; i++ {
+		if r.RemoteAddr[i] == '.' {
+			numDots++
+		}
+	}
+	slash16 := r.RemoteAddr[:i]
+	log.Printf("Using address prefix %q as hash key.", slash16)
+	table := crc64.MakeTable(resources.Crc64Polynomial)
+
+	return core.Hashkey(crc64.Checksum([]byte(slash16), table))
+}
+
 func (d *HttpsDistributor) handleBridgeRequest(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -80,7 +101,7 @@ func (d *HttpsDistributor) handleBridgeRequest(w http.ResponseWriter, r *http.Re
 	if d.ring.Len() == 0 {
 		fmt.Fprintf(w, "No bridges available.")
 	} else {
-		r, err := d.ring.Get(core.Hashkey(0))
+		r, err := d.ring.Get(d.mapRequestToHashkey(r))
 		if err != nil {
 			fmt.Fprintf(w, "Error while fetching bridge: %s", err)
 		} else {
