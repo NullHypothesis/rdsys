@@ -62,7 +62,9 @@ func pruneExpiredResources(rcol core.BackendResources) {
 	for rName, hashring := range rcol.Collection {
 		origLen := hashring.Len()
 		prunedResources := hashring.Prune()
-		log.Printf("Pruned %d out of %d resources from %s hashring.", len(prunedResources), origLen, rName)
+		if len(prunedResources) > 0 {
+			log.Printf("Pruned %d out of %d resources from %s hashring.", len(prunedResources), origLen, rName)
+		}
 	}
 }
 
