@@ -40,3 +40,6 @@ func (d *Dummy) SetState(state int) {
 func (d *Dummy) Expiry() time.Duration {
 	return d.ExpiryTime
 }
+func (d *Dummy) IsValid() bool {
+	return true
+}
