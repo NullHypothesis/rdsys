@@ -43,7 +43,7 @@ func (d *HttpsDistributor) periodicTasks(wg *sync.WaitGroup) {
 	defer close(stream)
 	req := core.ResourceRequest{
 		RequestOrigin: HttpsDistName,
-		ResourceTypes: []string{"obfs4"},
+		ResourceTypes: d.cfg.Distributors.Https.Resources,
 		BearerToken:   d.cfg.Backend.ApiTokens["https"],
 		Receiver:      stream,
 	}
