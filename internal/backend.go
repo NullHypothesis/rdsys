@@ -208,10 +208,10 @@ func (b *BackendContext) getResourceStreamHandler(w http.ResponseWriter, r *http
 		return nil
 	}
 
-	log.Printf("Sending client initial batch of resources.")
 	resourceMap := b.processResourceRequest(req)
+	log.Printf("Sending distributor initial batch: %s", resourceMap)
 	if err := sendDiff(&core.HashringDiff{New: resourceMap}); err != nil {
-		log.Printf("Error sending initial diff to client: %s.", err)
+		log.Printf("Error sending initial diff to distributor: %s.", err)
 	}
 
 	log.Printf("Entering streaming loop for %s.", r.RemoteAddr)
@@ -232,7 +232,7 @@ func (b *BackendContext) getResourceStreamHandler(w http.ResponseWriter, r *http
 			}
 		case diff := <-diffs:
 			if err := sendDiff(diff); err != nil {
-				log.Printf("Error sending diff to client: %s.", err)
+				log.Printf("Error sending diff to distributor: %s.", err)
 				break
 			}
 		}
