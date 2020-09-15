@@ -1,7 +1,9 @@
 package core
 
 import (
+	"fmt"
 	"log"
+	"strings"
 	"sync"
 )
 
@@ -44,6 +46,15 @@ func NewBackendResources(rNames []string, stencil *Stencil) *BackendResources {
 	}
 
 	return r
+}
+
+// String returns a summary of the backend resources.
+func (ctx *BackendResources) String() string {
+	s := []string{}
+	for rType, sHashring := range ctx.Collection {
+		s = append(s, fmt.Sprintf("%d %s", sHashring.Len(), rType))
+	}
+	return strings.Join(s, ", ")
 }
 
 // Add adds the given resource to the resource collection.  If the resource

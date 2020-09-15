@@ -53,6 +53,7 @@ func InitKraken(cfg *Config, shutdown chan bool, ready chan bool, rcol core.Back
 			log.Println("Kraken's ticker is ticking.")
 			reloadBridgeDescriptors(cfg.Backend.ExtrainfoFile, rcol)
 			pruneExpiredResources(rcol)
+			log.Printf("Backend resources: %s", &rcol)
 		}
 	}
 }
