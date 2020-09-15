@@ -1,6 +1,7 @@
 package salmon
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"time"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/internal"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/distributors"
@@ -15,6 +17,7 @@ import (
 
 var salmon *distributors.SalmonDistributor
 
+// ProxiesHandler handles requests for /proxies.
 func ProxiesHandler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -51,6 +54,7 @@ func ProxiesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// AccountHandler handles requests for /account.
 func AccountHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := salmon.Register()
 	if err != nil {
@@ -60,6 +64,7 @@ func AccountHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "new user id: %d", id)
 }
 
+// InviteHandler handles requests for /invite.
 func InviteHandler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -86,6 +91,7 @@ func InviteHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "give the following token to your friend:\n%s", token)
 }
 
+// RedeemHandler handles requests for /redeem.
 func RedeemHandler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -107,8 +113,11 @@ func RedeemHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "new user id: %d", id)
 }
 
+// Init is the entry point to Salmon's Web frontend.  It spins up the Web
+// server and then waits until it receives a SIGINT.
 func Init(cfg *internal.Config) {
 
+	var srv http.Server
 	salmon = distributors.NewSalmonDistributor()
 	salmon.Init(cfg)
 
@@ -117,26 +126,30 @@ func Init(cfg *internal.Config) {
 	signal.Notify(signalChan, syscall.SIGTERM)
 	go func() {
 		<-signalChan
-		// if err := cache.WriteToDisk(cacheFile); err != nil {
-		// 	log.Printf("Could not write cache because: %s", err)
-		// }
-		// TODO: wait for open scans to be done. maybe by doing proper web
-		// server shutdown? it should wait for all connection to be terminated?
-		os.Exit(1)
+		log.Printf("Caught SIGINT.")
+		salmon.Shutdown()
+
+		log.Printf("Shutting down Web API.")
+		// Give our Web server five seconds to shut down.
+		t := time.Now().Add(5 * time.Second)
+		ctx, cancel := context.WithDeadline(context.Background(), t)
+		defer cancel()
+		err := srv.Shutdown(ctx)
+		if err != nil {
+			log.Printf("Error shutting down Web API: %s", err)
+		}
 	}()
 
-	// log.Printf("Starting service on port %s.", addr)
-	// if certFilename != "" && keyFilename != "" {
-	// 	log.Fatal(http.ListenAndServeTLS(addr, certFilename, keyFilename, router))
-	// } else {
-	addr := ":9000"
 	mux := http.NewServeMux()
-
 	mux.Handle("/proxies", http.HandlerFunc(ProxiesHandler))
 	mux.Handle("/account", http.HandlerFunc(AccountHandler))
 	mux.Handle("/invite", http.HandlerFunc(InviteHandler))
 	mux.Handle("/redeem", http.HandlerFunc(RedeemHandler))
+	srv.Handler = mux
 
-	log.Fatal(http.ListenAndServe(addr, mux))
-	// }
+	srv.Addr = cfg.Distributors.Salmon.ApiAddress
+	log.Printf("Starting Web server at %s.", srv.Addr)
+	if err := srv.ListenAndServe(); err != nil {
+		log.Printf("Web API shut down: %s", err)
+	}
 }
