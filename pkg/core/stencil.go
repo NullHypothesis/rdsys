@@ -134,3 +134,7 @@ func (h *SplitHashring) GetForDist(distName string) ([]Resource, error) {
 
 	return resources, nil
 }
+
+func (h *SplitHashring) Len() int {
+	return h.Hashring.Len()
+}
