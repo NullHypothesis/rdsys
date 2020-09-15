@@ -14,8 +14,12 @@ const (
 )
 
 type ResourceRepository interface {
-	Store(r Resource)
-	Retrieve(id uint) *Resource
+	Serialise(string) error
+	Deserialise(string) error
+
+	Len()
+	ApplyDiff()
+	Get(Hashkey) (Resource, error)
 }
 
 type Resource interface {
