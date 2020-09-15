@@ -1,6 +1,9 @@
 package core
 
 import (
+	"errors"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -43,7 +46,113 @@ type Requester interface {
 }
 
 // ResourceMap maps a resource type to a slice of respective resources.
-type ResourceMap map[string][]Resource
+type ResourceMap map[string]ResourceQueue
+
+// ResourceQueue implements a queue of resources.
+type ResourceQueue []Resource
+
+// Enqueue adds a resource to the queue.  The function returns an error if the
+// resource already exists in the queue.
+func (q *ResourceQueue) Enqueue(r1 Resource) error {
+	for _, r2 := range *q {
+		if r1.Uid() == r2.Uid() {
+			return errors.New("resource already exists")
+		}
+	}
+	*q = append(*q, r1)
+	return nil
+}
+
+// Dequeue return and removes the oldest resource in the queue.  If the queue
+// is empty, the function returns an error.
+func (q *ResourceQueue) Dequeue() (Resource, error) {
+	if len(*q) == 0 {
+		return nil, errors.New("queue is empty")
+	}
+
+	r := (*q)[0]
+	if len(*q) > 1 {
+		*q = (*q)[1:]
+	} else {
+		*q = []Resource{}
+	}
+
+	return r, nil
+}
+
+// Delete removes the resource from the queue.  If the queue is empty, the
+// function returns an error.
+func (q *ResourceQueue) Delete(r1 Resource) error {
+	if len(*q) == 0 {
+		return errors.New("queue is empty")
+	}
+
+	// See the following article on why this works:
+	// https://github.com/golang/go/wiki/SliceTricks#filtering-without-allocating
+	new := (*q)[:0]
+	for _, r2 := range *q {
+		if r1.Uid() != r2.Uid() {
+			new = append(new, r2)
+		}
+	}
+
+	*q = new
+	return nil
+}
+
+// Update updates an existing resource if its unique ID matches the unique ID
+// of the given resource.  If the queue is empty, the function returns an
+// error.
+func (q *ResourceQueue) Update(r1 Resource) error {
+	if len(*q) == 0 {
+		return errors.New("queue is empty")
+	}
+
+	for i, r2 := range *q {
+		if r1.Uid() == r2.Uid() {
+			(*q)[i] = r1
+		}
+	}
+
+	return nil
+}
+
+func (m ResourceMap) String() string {
+	s := []string{}
+	for rType, queue := range m {
+		s = append(s, fmt.Sprintf("%s: %d", rType, len(queue)))
+	}
+	return strings.Join(s, ", ")
+}
+
+// ApplyDiff applies the given HashringDiff to the ResourceMap.  New resources
+// are added, changed resources are updated, and gone resources are removed.
+func (m ResourceMap) ApplyDiff(d *HashringDiff) {
+
+	for rType, resources := range d.New {
+		for _, r := range resources {
+			q := m[rType]
+			q.Enqueue(r)
+			m[rType] = q
+		}
+	}
+
+	for rType, resources := range d.Changed {
+		for _, r := range resources {
+			q := m[rType]
+			q.Update(r)
+			m[rType] = q
+		}
+	}
+
+	for rType, resources := range d.Gone {
+		for _, r := range resources {
+			q := m[rType]
+			q.Delete(r)
+			m[rType] = q
+		}
+	}
+}
 
 // CountryCode holds an ISO 3166-1 alpha-2 country code, e.g., "AR".
 type CountryCode string
