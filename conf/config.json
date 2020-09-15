@@ -6,21 +6,26 @@
         "api_endpoint_resources": "/resources",
         "api_endpoint_resource_stream": "/resource-stream",
         "api_endpoint_targets": "/targets",
-        "api_tokens": ["foo", "bar"],
+        "api_tokens": {
+                "https": "8HC5KfkOuk6BVarAw4xCRQH3wt7cqP8T/StgndPak8Y=",
+                "salmon": "TG01lCmClSWYyesi7NYJ+NAYJ9YTw2bI5fs9yYscBbs="
+        },
         "certfile": "",
         "keyfile": "",
         "distribution_proportions": {
             "https": 1,
-            "moat": 1,
             "salmon": 5
         }
     },
     "distributors": {
         "https": {
-            "api_address": "127.0.0.1:7200"
+            "api_address": "127.0.0.1:7200",
+            "resources": ["obfs3", "obfs4", "scramblesuit"]
         },
         "salmon": {
-            "working_directory": "/tmp/salmon/"
+            "api_address": "127.0.0.1:7300",
+            "working_directory": "/tmp/salmon/",
+            "resources": ["obfs4"]
         }
     }
 }

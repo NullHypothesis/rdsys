@@ -36,11 +36,14 @@ type Distributors struct {
 }
 
 type HttpsDistConfig struct {
-	ApiAddress string `json:"api_address"`
+	ApiAddress string   `json:"api_address"`
+	Resources  []string `json:"resources"`
 }
 
 type SalmonDistConfig struct {
-	WorkingDirectory string `json:"working_directory"`
+	ApiAddress       string   `json:"api_address"`
+	WorkingDirectory string   `json:"working_directory"`
+	Resources        []string `json:"resources"`
 }
 
 // LoadConfig loads the given JSON configuration file and returns the resulting
