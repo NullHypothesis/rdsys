@@ -112,8 +112,6 @@ func (ctx *BackendResources) Prune() {
 func (ctx *BackendResources) propagateUpdate(r Resource, event int) {
 	ctx.Lock()
 	defer ctx.Unlock()
-	log.Printf("Propagating update to %d potential event recipients.",
-		len(ctx.EventRecipients))
 
 	// Prepare the hashring difference that we're about to send.
 	diff := &HashringDiff{}
