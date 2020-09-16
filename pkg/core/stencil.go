@@ -67,9 +67,9 @@ func (s *Stencil) GetUpperEnd() (int, error) {
 	return max, nil
 }
 
-// IsResourceInDist returns true if the given resource maps to the given
+// DoesDistOwnResource returns true if the given resource maps to the given
 // distributor and false otherwise.
-func (s *Stencil) IsResourceInDist(r Resource, distName string) bool {
+func (s *Stencil) DoesDistOwnResource(r Resource, distName string) bool {
 
 	filterFunc, err := s.GetFilterFunc(distName)
 	if err != nil {

@@ -129,7 +129,7 @@ func (ctx *BackendResources) propagateUpdate(r Resource, event int) {
 
 		// A distributor should only receive a diff if the resource in the diff
 		// maps to the distributor.
-		if !ctx.Collection[r.Name()].IsResourceInDist(r, distName) {
+		if !ctx.Collection[r.Name()].DoesDistOwnResource(r, distName) {
 			continue
 		}
 		if !ctx.EventRecipients[distName].Request.HasResourceType(r.Name()) {
