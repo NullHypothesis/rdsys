@@ -130,15 +130,11 @@ func (ctx *BackendResources) propagateUpdate(r Resource, event int) {
 		// A distributor should only receive a diff if the resource in the diff
 		// maps to the distributor.
 		if !ctx.Collection[r.Name()].IsResourceInDist(r, distName) {
-			log.Printf("Not propagating %s to %s.", r.Name(), distName)
 			continue
 		}
 		if !ctx.EventRecipients[distName].Request.HasResourceType(r.Name()) {
-			log.Printf("Skipping %s because %s didn't ask for this resource type.", r.Name(), distName)
 			continue
 		}
-
-		log.Printf("%d channels for distributor recipient.", len(eventRecipient.EventChans))
 
 		for _, c := range eventRecipient.EventChans {
 			c <- diff
