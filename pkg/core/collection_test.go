@@ -2,6 +2,7 @@ package core
 
 import (
 	"testing"
+	"time"
 )
 
 func TestAddCollection(t *testing.T) {
@@ -34,5 +35,42 @@ func TestAddCollection(t *testing.T) {
 	}
 	if elems[1] != d3 {
 		t.Errorf("got unexpected element: %d", elems[1].Oid())
+	}
+}
+
+func TestStringCollection(t *testing.T) {
+	d := NewDummy(1, 1)
+	c := NewBackendResources([]string{d.Name()}, &Stencil{})
+	s := c.String()
+	expected := "0 dummy"
+	if s != expected {
+		t.Errorf("expected %q but got %q", expected, s)
+	}
+}
+
+func TestPruneCollection(t *testing.T) {
+	d := NewDummy(1, 1)
+	d.ExpiryTime = time.Minute * 10
+	c := NewBackendResources([]string{d.Name()}, &Stencil{})
+	c.Add(d)
+	hLength := func() int { return c.Collection[d.Name()].Len() }
+
+	// We should now have one element in the hashring.
+	if hLength() != 1 {
+		t.Fatalf("expectec hashring of length 1 but got %d", hLength())
+	}
+
+	// Expire the hashring node.
+	i, err := c.Collection[d.Name()].getIndex(d.Uid())
+	if err != nil {
+		t.Errorf("failed to retrieve existing resource: %s", err)
+	}
+	node := c.Collection[d.Name()].Hashnodes[i]
+	node.LastUpdate = time.Now().UTC().Add(-d.ExpiryTime - time.Minute)
+
+	c.Prune()
+	// Pruning should have left our hashring empty.
+	if hLength() != 0 {
+		t.Fatalf("expectec hashring of length 0 but got %d", hLength())
 	}
 }
