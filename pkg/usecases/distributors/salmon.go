@@ -357,7 +357,7 @@ func (p *Proxy) UpdateTrust() {
 	}
 }
 
-// SetBlocked marks the given proxy as blocked and adjusts the innocense scores
+// SetBlocked marks the given proxy as blocked and adjusts the innocence scores
 // of (and potentially blocks) all assigned users.
 func (p *Proxy) SetBlocked() {
 
