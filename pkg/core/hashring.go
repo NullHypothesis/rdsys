@@ -259,6 +259,17 @@ func (h *Hashring) Get(k Hashkey) (Resource, error) {
 	return h.Hashnodes[i].Elem, nil
 }
 
+// GetExact attempts to retrieve the element identified by the given hash key.
+// If we cannot find the element, an error is returned.
+func (h *Hashring) GetExact(k Hashkey) (Resource, error) {
+
+	i, err := h.getIndex(k)
+	if err != nil {
+		return nil, err
+	}
+	return h.Hashnodes[i].Elem, nil
+}
+
 // GetMany behaves like Get with the exception that it attempts to return the
 // given number of elements.  If the number of desired elements exceeds the
 // number of elements in the hashring, an error is returned.
