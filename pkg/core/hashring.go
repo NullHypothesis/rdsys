@@ -152,6 +152,11 @@ func (h *Hashring) ForceAdd(r Resource) {
 	h.Lock()
 	defer h.Unlock()
 
+	// Run our "on-add" hook.
+	if h.OnAddFunc != nil {
+		go h.OnAddFunc(r)
+	}
+
 	// Does the hashring already have the resource?
 	if i, err := h.getIndex(r.Uid()); err == nil {
 		h.Hashnodes[i].LastUpdate = time.Now().UTC()
