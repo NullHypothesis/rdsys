@@ -2,8 +2,10 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -48,6 +50,21 @@ func NewHashring() *Hashring {
 	h := &Hashring{}
 	h.OnAddFunc = func(r Resource) {}
 	return h
+}
+
+func (m *HashringDiff) String() string {
+
+	s := []string{}
+	f := func(desc string, rMap ResourceMap) {
+		for rType, rQueue := range rMap {
+			s = append(s, fmt.Sprintf("%d %s %s", len(rQueue), desc, rType))
+		}
+	}
+	f("new", m.New)
+	f("changed", m.Changed)
+	f("gone", m.Gone)
+
+	return "Resource diff: " + strings.Join(s, ", ")
 }
 
 // Len implements the sort interface.
