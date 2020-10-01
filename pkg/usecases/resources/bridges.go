@@ -107,7 +107,7 @@ func (b *Bridge) Oid() core.Hashkey {
 
 func (b *Bridge) Uid() core.Hashkey {
 	table := crc64.MakeTable(Crc64Polynomial)
-	return core.Hashkey(crc64.Checksum([]byte(b.Fingerprint), table))
+	return core.Hashkey(crc64.Checksum([]byte(ResourceTypeVanilla+b.Fingerprint), table))
 }
 
 func (b *Bridge) IsDepleted() bool {
