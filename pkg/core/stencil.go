@@ -78,7 +78,7 @@ func (s *Stencil) DoesDistOwnResource(r Resource, distName string) bool {
 
 	filterFunc, err := s.GetFilterFunc(distName)
 	if err != nil {
-		log.Println("ERROR")
+		log.Printf("Bug: GetFilterFunc complained: %s", err)
 		return false
 	}
 	return filterFunc(r)
