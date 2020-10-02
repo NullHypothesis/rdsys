@@ -29,7 +29,7 @@ type BackendResources struct {
 // EventRecipient represents the recipient of a resource event, i.e. a
 // distributor; or rather, what we need to send updates to said distributor.
 type EventRecipient struct {
-	EventChans []chan *HashringDiff
+	EventChans []chan *ResourceDiff
 	Request    *ResourceRequest
 }
 
@@ -114,7 +114,7 @@ func (ctx *BackendResources) propagateUpdate(r Resource, event int) {
 	defer ctx.Unlock()
 
 	// Prepare the hashring difference that we're about to send.
-	diff := &HashringDiff{}
+	diff := &ResourceDiff{}
 	rm := ResourceMap{r.Type(): []Resource{r}}
 	switch event {
 	case ResourceIsNew:
@@ -143,7 +143,7 @@ func (ctx *BackendResources) propagateUpdate(r Resource, event int) {
 }
 
 // RegisterChan registers a channel to be informed about resource updates.
-func (ctx *BackendResources) RegisterChan(req *ResourceRequest, recipient chan *HashringDiff) {
+func (ctx *BackendResources) RegisterChan(req *ResourceRequest, recipient chan *ResourceDiff) {
 	ctx.Lock()
 	defer ctx.Unlock()
 
@@ -151,7 +151,7 @@ func (ctx *BackendResources) RegisterChan(req *ResourceRequest, recipient chan *
 	log.Printf("Registered new channel for distributor %q to receive updates.", distName)
 	_, exists := ctx.EventRecipients[distName]
 	if !exists {
-		er := &EventRecipient{Request: req, EventChans: []chan *HashringDiff{recipient}}
+		er := &EventRecipient{Request: req, EventChans: []chan *ResourceDiff{recipient}}
 		ctx.EventRecipients[distName] = er
 	} else {
 		ctx.EventRecipients[distName].EventChans = append(ctx.EventRecipients[distName].EventChans, recipient)
@@ -159,12 +159,12 @@ func (ctx *BackendResources) RegisterChan(req *ResourceRequest, recipient chan *
 }
 
 // UnregisterChan unregisters a channel to be informed about resource updates.
-func (ctx *BackendResources) UnregisterChan(distName string, recipient chan *HashringDiff) {
+func (ctx *BackendResources) UnregisterChan(distName string, recipient chan *ResourceDiff) {
 	ctx.Lock()
 	defer ctx.Unlock()
 
 	chanSlice := ctx.EventRecipients[distName].EventChans
-	newSlice := []chan *HashringDiff{}
+	newSlice := []chan *ResourceDiff{}
 
 	for i, c := range chanSlice {
 		if c == recipient {

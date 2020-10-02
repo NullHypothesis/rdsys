@@ -176,21 +176,21 @@ func TestApplyDiff(t *testing.T) {
 
 	m := make(ResourceMap)
 
-	diff := NewHashringDiff()
+	diff := NewResourceDiff()
 	diff.New["dummy"] = []Resource{NewDummy(0, 0)}
 	m.ApplyDiff(diff)
 	if len(m["dummy"]) != 1 || m["dummy"][0].Uid() != 0 {
 		t.Errorf("failed to add resource from diff")
 	}
 
-	diff = NewHashringDiff()
+	diff = NewResourceDiff()
 	diff.Changed["dummy"] = []Resource{NewDummy(1, 0)}
 	m.ApplyDiff(diff)
 	if len(m["dummy"]) != 1 || m["dummy"][0].Oid() != 1 {
 		t.Errorf("failed to update resource from diff")
 	}
 
-	diff = NewHashringDiff()
+	diff = NewResourceDiff()
 	diff.Gone["dummy"] = []Resource{NewDummy(1, 0)}
 	m.ApplyDiff(diff)
 	if len(m["dummy"]) != 0 {

@@ -10,7 +10,10 @@ import (
 	"time"
 )
 
-type HashringDiff struct {
+// ResourceDiff represents a diff that contains new, changed, and gone
+// resources.  A resource diff can be applied onto data structures that
+// implement a collection of resources, e.g. a Hashring.
+type ResourceDiff struct {
 	New     ResourceMap `json:"new"`
 	Changed ResourceMap `json:"changed"`
 	Gone    ResourceMap `json:"gone"`
@@ -33,8 +36,8 @@ type Hashring struct {
 type FilterFunc func(r Resource) bool
 type OnAddFunc func(r Resource)
 
-func NewHashringDiff() *HashringDiff {
-	return &HashringDiff{
+func NewResourceDiff() *ResourceDiff {
+	return &ResourceDiff{
 		New:     make(ResourceMap),
 		Changed: make(ResourceMap),
 		Gone:    make(ResourceMap),
@@ -52,7 +55,7 @@ func NewHashring() *Hashring {
 	return h
 }
 
-func (m *HashringDiff) String() string {
+func (m *ResourceDiff) String() string {
 
 	s := []string{}
 	f := func(desc string, rMap ResourceMap) {
@@ -82,9 +85,9 @@ func (h *Hashring) Swap(i, j int) {
 	h.Hashnodes[i], h.Hashnodes[j] = h.Hashnodes[j], h.Hashnodes[i]
 }
 
-// ApplyDiff applies the given HashringDiff to the hashring.  New resources are
+// ApplyDiff applies the given ResourceDiff to the hashring.  New resources are
 // added, changed resources are updated, and gone resources are removed.
-func (h *Hashring) ApplyDiff(d *HashringDiff) {
+func (h *Hashring) ApplyDiff(d *ResourceDiff) {
 
 	for rType, resources := range d.New {
 		log.Printf("Adding %d resources of type %s.", len(resources), rType)
@@ -108,9 +111,9 @@ func (h *Hashring) ApplyDiff(d *HashringDiff) {
 
 // Diff determines the resources that are 1) in h1 but not h2 (new), 2) in both
 // h1 and h2 but changed, and 3) in h2 but not h1 (gone).
-func (h1 *Hashring) Diff(h2 *Hashring) *HashringDiff {
+func (h1 *Hashring) Diff(h2 *Hashring) *ResourceDiff {
 
-	diff := NewHashringDiff()
+	diff := NewResourceDiff()
 
 	for _, n := range h1.Hashnodes {
 		r1 := n.Elem

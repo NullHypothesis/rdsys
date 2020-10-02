@@ -24,7 +24,7 @@ const (
 // HttpsIpcContext implements the delivery.Mechanism interface.
 type HttpsIpcContext struct {
 	apiEndpoint     string
-	messages        chan *core.HashringDiff
+	messages        chan *core.ResourceDiff
 	done            chan bool
 	wg              sync.WaitGroup
 	timeBeforeRetry time.Duration
@@ -141,12 +141,12 @@ func (ctx *HttpsIpcContext) handleStream(req *core.ResourceRequest) {
 		select {
 		// We got a new JSON chunk from our backend.
 		case chunk := <-incoming:
-			helper := resources.TmpHashringDiff{}
+			helper := resources.TmpResourceDiff{}
 			if err := json.Unmarshal(chunk, &helper); err != nil {
 				log.Printf("Error unmarshalling preliminary JSON from backend: %s", err)
 				break
 			}
-			diff, err := resources.UnmarshalTmpHashringDiff(&helper)
+			diff, err := resources.UnmarshalTmpResourceDiff(&helper)
 			if err != nil {
 				log.Printf("Error unmarshalling remaining JSON from backend: %s", err)
 				break

@@ -187,12 +187,12 @@ func (b *BackendContext) getResourceStreamHandler(w http.ResponseWriter, r *http
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	diffs := make(chan *core.HashringDiff)
+	diffs := make(chan *core.ResourceDiff)
 	b.Resources.RegisterChan(req, diffs)
 	defer b.Resources.UnregisterChan(req.RequestOrigin, diffs)
 	defer close(diffs)
 
-	sendDiff := func(diff *core.HashringDiff) error {
+	sendDiff := func(diff *core.ResourceDiff) error {
 		jsonBlurb, err := json.MarshalIndent(diff, "", "    ")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -210,7 +210,7 @@ func (b *BackendContext) getResourceStreamHandler(w http.ResponseWriter, r *http
 
 	resourceMap := b.processResourceRequest(req)
 	log.Printf("Sending distributor initial batch: %s", resourceMap)
-	if err := sendDiff(&core.HashringDiff{New: resourceMap}); err != nil {
+	if err := sendDiff(&core.ResourceDiff{New: resourceMap}); err != nil {
 		log.Printf("Error sending initial diff to distributor: %s.", err)
 	}
 

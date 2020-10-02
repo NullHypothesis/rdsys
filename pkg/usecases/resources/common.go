@@ -34,17 +34,17 @@ var ResourceMap = map[string]func() interface{}{
 	ResourceTypeHTTPT:        func() interface{} { return NewTransport() },
 }
 
-type TmpHashringDiff struct {
+type TmpResourceDiff struct {
 	New     map[string][]json.RawMessage
 	Changed map[string][]json.RawMessage
 	Gone    map[string][]json.RawMessage
 }
 
-// UnmarshalTmpHashringDiff unmarshals the raw JSON messages in the given
+// UnmarshalTmpResourceDiff unmarshals the raw JSON messages in the given
 // temporary hashring into the respective data structures.
-func UnmarshalTmpHashringDiff(tmp *TmpHashringDiff) (*core.HashringDiff, error) {
+func UnmarshalTmpResourceDiff(tmp *TmpResourceDiff) (*core.ResourceDiff, error) {
 
-	ret := core.NewHashringDiff()
+	ret := core.NewResourceDiff()
 
 	process := func(data map[string][]json.RawMessage) error {
 		for k, vs := range data {

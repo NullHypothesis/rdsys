@@ -41,7 +41,7 @@ func (d *HttpsDistributor) periodicTasks(wg *sync.WaitGroup) {
 	signal.Notify(sigint, os.Interrupt)
 
 	log.Printf("Initialising resource stream.")
-	stream := make(chan *core.HashringDiff)
+	stream := make(chan *core.ResourceDiff)
 	defer close(stream)
 	req := core.ResourceRequest{
 		RequestOrigin: HttpsDistName,

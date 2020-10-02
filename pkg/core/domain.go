@@ -151,9 +151,9 @@ func (m ResourceMap) String() string {
 	return strings.Join(s, ", ")
 }
 
-// ApplyDiff applies the given HashringDiff to the ResourceMap.  New resources
+// ApplyDiff applies the given ResourceDiff to the ResourceMap.  New resources
 // are added, changed resources are updated, and gone resources are removed.
-func (m ResourceMap) ApplyDiff(d *HashringDiff) {
+func (m ResourceMap) ApplyDiff(d *ResourceDiff) {
 
 	for rType, resources := range d.New {
 		for _, r := range resources {
@@ -259,7 +259,7 @@ type ResourceRequest struct {
 	RequestOrigin string             `json:"request_origin"`
 	ResourceTypes []string           `json:"resource_types"`
 	BearerToken   string             `json:"-"`
-	Receiver      chan *HashringDiff `json:"-"`
+	Receiver      chan *ResourceDiff `json:"-"`
 }
 
 func (r *ResourceRequest) HasResourceType(rType1 string) bool {

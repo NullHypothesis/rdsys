@@ -145,7 +145,7 @@ func (s *SalmonDistributor) Init(cfg *internal.Config) {
 
 	log.Printf("Initialising resource stream.")
 	s.ipc = mechanisms.NewHttpsIpc("http://" + cfg.Backend.ApiAddress + cfg.Backend.ResourceStreamEndpoint)
-	rStream := make(chan *core.HashringDiff)
+	rStream := make(chan *core.ResourceDiff)
 	req := core.ResourceRequest{
 		RequestOrigin: SalmonDistName,
 		ResourceTypes: s.cfg.Distributors.Salmon.Resources,
@@ -277,7 +277,7 @@ func (s *SalmonDistributor) GetProxies(userId int, rType string) ([]core.Resourc
 }
 
 // Housekeeping keeps track of periodic tasks.
-func (s *SalmonDistributor) Housekeeping(rStream chan *core.HashringDiff) {
+func (s *SalmonDistributor) Housekeeping(rStream chan *core.ResourceDiff) {
 
 	defer s.wg.Done()
 	defer close(rStream)
