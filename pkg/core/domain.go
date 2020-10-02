@@ -195,10 +195,10 @@ func (s1 LocationSet) HasLocationsNotIn(s2 LocationSet) bool {
 // ResourceBase provides a data structure plus associated methods that are
 // shared across all of our resources.
 type ResourceBase struct {
-	rType     string `json:"type"`
+	rType     string      `json:"type"`
+	blockedIn LocationSet `json:"blocked_in"`
 	Location  *Location
 	Id        uint
-	blockedIn LocationSet
 	state     int
 
 	Requesters []Requester
