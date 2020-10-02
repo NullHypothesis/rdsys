@@ -166,8 +166,34 @@ func TestResourceMapString(t *testing.T) {
 		t.Errorf("got incorrect string representation of resource map")
 	}
 
-	m["obfs4"] = []Resource{NewDummy(0, 0)}
-	if m.String() != "obfs4: 1" {
+	m["dummy"] = []Resource{NewDummy(0, 0)}
+	if m.String() != "dummy: 1" {
 		t.Errorf("got incorrect string representation of resource map")
+	}
+}
+
+func TestApplyDiff(t *testing.T) {
+
+	m := make(ResourceMap)
+
+	diff := NewHashringDiff()
+	diff.New["dummy"] = []Resource{NewDummy(0, 0)}
+	m.ApplyDiff(diff)
+	if len(m["dummy"]) != 1 || m["dummy"][0].Uid() != 0 {
+		t.Errorf("failed to add resource from diff")
+	}
+
+	diff = NewHashringDiff()
+	diff.Changed["dummy"] = []Resource{NewDummy(1, 0)}
+	m.ApplyDiff(diff)
+	if len(m["dummy"]) != 1 || m["dummy"][0].Oid() != 1 {
+		t.Errorf("failed to update resource from diff")
+	}
+
+	diff = NewHashringDiff()
+	diff.Gone["dummy"] = []Resource{NewDummy(1, 0)}
+	m.ApplyDiff(diff)
+	if len(m["dummy"]) != 0 {
+		t.Errorf("failed to remove resource from diff")
 	}
 }
