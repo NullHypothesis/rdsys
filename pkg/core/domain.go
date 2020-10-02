@@ -28,6 +28,8 @@ type Resource interface {
 	IsDepleted() bool
 	IsPublic() bool
 	IsValid() bool
+	BlockedIn() LocationSet
+	SetBlockedIn(LocationSet)
 	// Uid returns the resource's unique identifier.  Bridges with different
 	// fingerprints have different unique identifiers.
 	Uid() Hashkey
@@ -46,7 +48,6 @@ type Resource interface {
 type Requester interface {
 	Hash()
 	IsTransient() bool
-	// Location     *Location
 }
 
 // ResourceMap maps a resource type to a slice of respective resources.
@@ -158,27 +159,52 @@ func (m ResourceMap) ApplyDiff(d *HashringDiff) {
 	}
 }
 
-// CountryCode holds an ISO 3166-1 alpha-2 country code, e.g., "AR".
-type CountryCode string
-
-// ASN holds an autonomous system number, e.g., 1234.
-type ASN uint32
-
 // Location represents the physical and topological location of a resource or
 // requester.
 type Location struct {
-	CountryCode CountryCode
-	ASN         ASN
+	CountryCode string // ISO 3166-1 alpha-2 country code, e.g. "AR".
+	ASN         uint32 // Autonomous system number, e.g. 1234.
+}
+
+// String returns the string representation of the given location, e.g. "RU
+// 1234".
+func (l *Location) String() string {
+	if l.ASN == 0 {
+		return fmt.Sprintf("%s", l.CountryCode)
+	} else {
+		return fmt.Sprintf("%s (%d)", l.CountryCode, l.ASN)
+	}
+}
+
+// LocationSet maps the string representation of locations (because we cannot
+// use structs as map keys) to 'true'.
+type LocationSet map[string]bool
+
+// HasLocationsNotIn returns true if s1 contains at least one location that is
+// not in s2.
+func (s1 LocationSet) HasLocationsNotIn(s2 LocationSet) bool {
+	for key, _ := range s1 {
+		if _, exists := s2[key]; !exists {
+			return true
+		}
+	}
+	return false
 }
 
 type ResourceBase struct {
 	Type      string `json:"type"`
 	Location  *Location
 	Id        uint
-	BlockedIn map[CountryCode]bool
+	blockedIn LocationSet
 	State     int
 
 	Requesters []Requester
+}
+
+func NewResourceBase() *ResourceBase {
+	r := &ResourceBase{}
+	r.blockedIn = make(LocationSet)
+	return r
 }
 
 func (r *ResourceBase) SetState(state int) {
@@ -189,19 +215,12 @@ func (r *ResourceBase) GetState() int {
 	return r.State
 }
 
-func NewResourceBase() *ResourceBase {
-	r := &ResourceBase{}
-	r.BlockedIn = make(map[CountryCode]bool)
-	return r
-}
-
-func (r *ResourceBase) IsBlockedIn(l *Location) bool {
-	_, exists := r.BlockedIn[l.CountryCode]
-	return exists
+func (r *ResourceBase) BlockedIn() LocationSet {
+	return r.blockedIn
 }
 
 func (r *ResourceBase) SetBlockedIn(l *Location) {
-	// Maybe update trust levels?
+	r.blockedIn[l.String()] = true
 }
 
 type ResourceRequest struct {

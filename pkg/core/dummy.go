@@ -43,3 +43,8 @@ func (d *Dummy) Expiry() time.Duration {
 func (d *Dummy) IsValid() bool {
 	return true
 }
+func (d *Dummy) BlockedIn() LocationSet {
+	return make(LocationSet)
+}
+func (d *Dummy) SetBlockedIn(LocationSet) {
+}

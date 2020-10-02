@@ -4,20 +4,6 @@ import (
 	"testing"
 )
 
-func TestBlockedIn(t *testing.T) {
-	r := ResourceBase{}
-	l := &Location{"DE", 1234}
-
-	if r.IsBlockedIn(l) {
-		t.Error("Falsely labeled resource as blocked.")
-	}
-
-	l = &Location{"AT", 1234}
-	if r.IsBlockedIn(l) {
-		t.Error("Falsely labeled resource as blocked.")
-	}
-}
-
 func TestQueue(t *testing.T) {
 
 	d0 := NewDummy(0, 0)
@@ -82,5 +68,62 @@ func TestQueue(t *testing.T) {
 	q.Delete(d1)
 	if len(q) != 0 {
 		t.Errorf("expected queue length of 0 but got %d", len(q))
+	}
+}
+
+func TestLocationString(t *testing.T) {
+
+	l1 := &Location{CountryCode: "FI", ASN: 9123}
+	l2 := &Location{CountryCode: "AT"}
+
+	if l1.String() != "FI (9123)" {
+		t.Errorf("got incorrect string representation")
+	}
+	if l2.String() != "AT" {
+		t.Errorf("got incorrect string representation")
+	}
+}
+
+func TestHasLocationNotIn(t *testing.T) {
+
+	s1 := LocationSet{"BY (1234)": true, "BE (4321)": true}
+
+	if s1.HasLocationsNotIn(s1) {
+		t.Errorf("failed to determine set relationship")
+	}
+
+	if s1.HasLocationsNotIn(LocationSet{"BY (1234)": true, "BE (4321)": true, "CA (1111)": true}) {
+		t.Errorf("failed to determine set relationship")
+	}
+
+	if !s1.HasLocationsNotIn(LocationSet{"FR (2222)": true}) {
+		t.Errorf("failed to determine set relationship")
+	}
+
+	if !s1.HasLocationsNotIn(LocationSet{}) {
+		t.Errorf("failed to determine set relationship")
+	}
+}
+
+func TestResourceBase(t *testing.T) {
+
+	b := NewResourceBase()
+
+	if b.GetState() != StateUntested {
+		t.Errorf("resource base has wrong default state")
+	}
+
+	b.SetState(StateFunctional)
+	if b.GetState() != StateFunctional {
+		t.Errorf("failed to update resource base state")
+	}
+
+	b.SetBlockedIn(&Location{CountryCode: "DE", ASN: 1122})
+	l := b.BlockedIn()
+	if len(l) != 1 {
+		t.Errorf("location set has incorrect length")
+	}
+	if _, exists := l["DE (1122)"]; !exists {
+		t.Errorf("failed to retrieve blocked location set from resource base")
 	}
 }
