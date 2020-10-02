@@ -22,6 +22,9 @@ type ResourceRepository interface {
 	Get(Hashkey) (Resource, error)
 }
 
+// Resource specifies the resources that rdsys hands out to users.  This could
+// be a vanilla Tor bridge, and obfs4 bridge, a Snowflake proxy, and even Tor
+// Browser links.  Your imagination is the limit.
 type Resource interface {
 	Type() string
 	SetType(string)
