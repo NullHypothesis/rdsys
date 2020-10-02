@@ -136,3 +136,14 @@ func TestResourceBase(t *testing.T) {
 		t.Errorf("failed to retrieve the resource's type")
 	}
 }
+
+func TestHasResourceType(t *testing.T) {
+
+	rr := ResourceRequest{ResourceTypes: []string{"obfs3", "obfs4"}}
+	if rr.HasResourceType("foo") {
+		t.Errorf("failed to return 'false' for non-existing type")
+	}
+	if !rr.HasResourceType("obfs4") {
+		t.Errorf("failed to return 'true' for existing type")
+	}
+}
