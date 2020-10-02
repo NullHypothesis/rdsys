@@ -46,11 +46,6 @@ type Resource interface {
 	Expiry() time.Duration
 }
 
-type Requester interface {
-	Hash()
-	IsTransient() bool
-}
-
 // ResourceMap maps a resource type to a slice of respective resources.
 type ResourceMap map[string]ResourceQueue
 
@@ -198,17 +193,7 @@ type ResourceBase struct {
 	rType     string      `json:"type"`
 	blockedIn LocationSet `json:"blocked_in"`
 	Location  *Location
-	Id        uint
 	state     int
-
-	Requesters []Requester
-}
-
-// NewResourceBase returns a new ResourceBase.
-func NewResourceBase() *ResourceBase {
-	r := &ResourceBase{}
-	r.blockedIn = make(LocationSet)
-	return r
 }
 
 // Type returns the resource's type.
