@@ -22,15 +22,15 @@ func TestSerialise(t *testing.T) {
 	if err != nil {
 		t.Errorf("could not create temporary file: %s", err)
 	}
-	defer os.Remove(file.Type())
+	defer os.Remove(file.Name())
 
-	err = Serialise(file.Type(), dummies)
+	err = Serialise(file.Name(), dummies)
 	if err != nil {
 		t.Errorf("could not serialise data structure: %s", err)
 	}
 
 	recovered := []*Dummy{}
-	err = Deserialise(file.Type(), &recovered)
+	err = Deserialise(file.Name(), &recovered)
 	if err != nil {
 		t.Errorf("could not deserialise data structure: %s", err)
 	}
