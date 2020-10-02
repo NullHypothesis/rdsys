@@ -224,10 +224,12 @@ func (r *ResourceBase) BlockedIn() LocationSet {
 	return r.blockedIn
 }
 
-// SetBlockedIn adds the given location to the set of locations that block the
-// resource.
-func (r *ResourceBase) SetBlockedIn(l *Location) {
-	r.blockedIn[l.String()] = true
+// SetBlockedIn adds the given location set to the set of locations that block
+// the resource.
+func (r *ResourceBase) SetBlockedIn(l LocationSet) {
+	for key, _ := range l {
+		r.blockedIn[key] = true
+	}
 }
 
 type ResourceRequest struct {

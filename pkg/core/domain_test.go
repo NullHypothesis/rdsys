@@ -118,7 +118,10 @@ func TestResourceBase(t *testing.T) {
 		t.Errorf("failed to update resource base state")
 	}
 
-	b.SetBlockedIn(&Location{CountryCode: "DE", ASN: 1122})
+	ls := make(LocationSet)
+	l1 := &Location{CountryCode: "DE", ASN: 1122}
+	ls[l1.String()] = true
+	b.SetBlockedIn(ls)
 	l := b.BlockedIn()
 	if len(l) != 1 {
 		t.Errorf("location set has incorrect length")
