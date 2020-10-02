@@ -191,6 +191,8 @@ func (s1 LocationSet) HasLocationsNotIn(s2 LocationSet) bool {
 	return false
 }
 
+// ResourceBase provides a data structure plus associated methods that are
+// shared across all of our resources.
 type ResourceBase struct {
 	Type      string `json:"type"`
 	Location  *Location
@@ -201,24 +203,30 @@ type ResourceBase struct {
 	Requesters []Requester
 }
 
+// NewResourceBase returns a new ResourceBase.
 func NewResourceBase() *ResourceBase {
 	r := &ResourceBase{}
 	r.blockedIn = make(LocationSet)
 	return r
 }
 
+// SetState sets the resource's state to the given state.
 func (r *ResourceBase) SetState(state int) {
 	r.state = state
 }
 
+// State returns the resource's state.
 func (r *ResourceBase) State() int {
 	return r.state
 }
 
+// BlockedIn returns the set of locations that block the resource.
 func (r *ResourceBase) BlockedIn() LocationSet {
 	return r.blockedIn
 }
 
+// SetBlockedIn adds the given location to the set of locations that block the
+// resource.
 func (r *ResourceBase) SetBlockedIn(l *Location) {
 	r.blockedIn[l.String()] = true
 }
