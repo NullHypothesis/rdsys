@@ -54,6 +54,10 @@ func TestUnmarshalResources(t *testing.T) {
 func TestPostResourcesHandler(t *testing.T) {
 
 	b := BackendContext{}
+	b.Config = &Config{}
+	b.Config.Backend.ApiTokens = make(map[string]string)
+	b.Config.Backend.ApiTokens["foo"] = "bar"
+
 	b.Resources = *core.NewBackendResources([]string{"obfs4"}, nil)
 
 	rr := httptest.NewRecorder()
@@ -62,6 +66,7 @@ func TestPostResourcesHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Header.Add("Authorization", "Bearer bar")
 
 	b.postResourcesHandler(rr, req)
 	if rr.Code != http.StatusOK {
@@ -74,6 +79,7 @@ func TestPostResourcesHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	req.Header.Add("Authorization", "Bearer bar")
 
 	b.postResourcesHandler(rr, req)
 	if rr.Code != http.StatusBadRequest {
