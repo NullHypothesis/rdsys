@@ -39,7 +39,7 @@ type Resource interface {
 	// same Uid but not vice versa.
 	Oid() Hashkey
 	SetState(int)
-	GetState() int
+	State() int
 	// Expiry returns the duration after which the resource should be deleted
 	// from the backend (if the backend hasn't received an update).
 	Expiry() time.Duration
@@ -196,7 +196,7 @@ type ResourceBase struct {
 	Location  *Location
 	Id        uint
 	blockedIn LocationSet
-	State     int
+	state     int
 
 	Requesters []Requester
 }
@@ -208,11 +208,11 @@ func NewResourceBase() *ResourceBase {
 }
 
 func (r *ResourceBase) SetState(state int) {
-	r.State = state
+	r.state = state
 }
 
-func (r *ResourceBase) GetState() int {
-	return r.State
+func (r *ResourceBase) State() int {
+	return r.state
 }
 
 func (r *ResourceBase) BlockedIn() LocationSet {

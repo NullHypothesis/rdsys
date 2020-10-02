@@ -109,12 +109,12 @@ func TestResourceBase(t *testing.T) {
 
 	b := NewResourceBase()
 
-	if b.GetState() != StateUntested {
+	if b.State() != StateUntested {
 		t.Errorf("resource base has wrong default state")
 	}
 
 	b.SetState(StateFunctional)
-	if b.GetState() != StateFunctional {
+	if b.State() != StateFunctional {
 		t.Errorf("failed to update resource base state")
 	}
 

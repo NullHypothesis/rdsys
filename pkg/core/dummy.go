@@ -32,7 +32,7 @@ func (d *Dummy) IsDepleted() bool {
 func (d *Dummy) IsPublic() bool {
 	return false
 }
-func (d *Dummy) GetState() int {
+func (d *Dummy) State() int {
 	return 1
 }
 func (d *Dummy) SetState(state int) {
