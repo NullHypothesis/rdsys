@@ -16,15 +16,6 @@ const (
 	StateNotFunctional
 )
 
-type ResourceRepository interface {
-	Serialise(string) error
-	Deserialise(string) error
-
-	Len()
-	ApplyDiff()
-	Get(Hashkey) (Resource, error)
-}
-
 // Resource specifies the resources that rdsys hands out to users.  This could
 // be a vanilla Tor bridge, and obfs4 bridge, a Snowflake proxy, and even Tor
 // Browser links.  Your imagination is the limit.
@@ -277,7 +268,4 @@ func (r *ResourceRequest) HasResourceType(rType1 string) bool {
 		}
 	}
 	return false
-}
-
-type Response struct {
 }
