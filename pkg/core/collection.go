@@ -62,7 +62,7 @@ func (ctx *BackendResources) String() string {
 // object ID changed), we update the existing resource.
 func (ctx *BackendResources) Add(r1 Resource) {
 
-	hashring := ctx.Collection[r1.Name()]
+	hashring := ctx.Collection[r1.Type()]
 	if i, err := hashring.getIndex(r1.Uid()); err == nil {
 		// The resource's unique ID already exists.  That means, the resource
 		// either remains the same, or it changed (i.e. its object ID differs).
@@ -115,7 +115,7 @@ func (ctx *BackendResources) propagateUpdate(r Resource, event int) {
 
 	// Prepare the hashring difference that we're about to send.
 	diff := &HashringDiff{}
-	rm := ResourceMap{r.Name(): []Resource{r}}
+	rm := ResourceMap{r.Type(): []Resource{r}}
 	switch event {
 	case ResourceIsNew:
 		diff.New = rm
@@ -129,10 +129,10 @@ func (ctx *BackendResources) propagateUpdate(r Resource, event int) {
 
 		// A distributor should only receive a diff if the resource in the diff
 		// maps to the distributor.
-		if !ctx.Collection[r.Name()].DoesDistOwnResource(r, distName) {
+		if !ctx.Collection[r.Type()].DoesDistOwnResource(r, distName) {
 			continue
 		}
-		if !ctx.EventRecipients[distName].Request.HasResourceType(r.Name()) {
+		if !ctx.EventRecipients[distName].Request.HasResourceType(r.Type()) {
 			continue
 		}
 

@@ -77,7 +77,7 @@ func NewBridge() *Bridge {
 	// A bridge (without pluggable transports) is always running vanilla Tor
 	// over TCP.
 	b.Protocol = ProtoTypeTCP
-	b.Type = ResourceTypeVanilla
+	b.SetType(ResourceTypeVanilla)
 	return b
 }
 
@@ -93,7 +93,7 @@ func (b *Bridge) AddTransport(t1 *Transport) {
 }
 
 func (b *Bridge) IsValid() bool {
-	return b.Type != "" && b.Address.String() != "" && b.Port != 0
+	return b.Type() != "" && b.Address.String() != "" && b.Port != 0
 }
 
 func (b *Bridge) GetBridgeLine() string {
@@ -116,10 +116,6 @@ func (b *Bridge) IsDepleted() bool {
 
 func (b *Bridge) String() string {
 	return b.GetBridgeLine()
-}
-
-func (b *Bridge) Name() string {
-	return b.Type
 }
 
 func (b *Bridge) Expiry() time.Duration {

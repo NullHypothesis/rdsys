@@ -9,24 +9,24 @@ func TestAddCollection(t *testing.T) {
 	d1 := NewDummy(1, 1)
 	d2 := NewDummy(2, 2)
 	d3 := NewDummy(3, 2)
-	c := NewBackendResources([]string{d1.Name()}, &Stencil{})
+	c := NewBackendResources([]string{d1.Type()}, &Stencil{})
 
 	c.Add(d1)
-	if c.Collection[d1.Name()].Len() != 1 {
+	if c.Collection[d1.Type()].Len() != 1 {
 		t.Errorf("expected length 1 but got %d", len(c.Collection))
 	}
 	c.Add(d2)
-	if c.Collection[d1.Name()].Len() != 2 {
+	if c.Collection[d1.Type()].Len() != 2 {
 		t.Errorf("expected length 2 but got %d", len(c.Collection))
 	}
 	// d3 has the same unique ID as d2 but a different object ID.  Our
 	// collection should update d2 but not create a new element.
 	c.Add(d3)
-	if c.Collection[d1.Name()].Len() != 2 {
+	if c.Collection[d1.Type()].Len() != 2 {
 		t.Errorf("expected length 2 but got %d", len(c.Collection))
 	}
 
-	elems, err := c.Collection[d3.Name()].GetMany(Hashkey(0), 2)
+	elems, err := c.Collection[d3.Type()].GetMany(Hashkey(0), 2)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -40,7 +40,7 @@ func TestAddCollection(t *testing.T) {
 
 func TestStringCollection(t *testing.T) {
 	d := NewDummy(1, 1)
-	c := NewBackendResources([]string{d.Name()}, &Stencil{})
+	c := NewBackendResources([]string{d.Type()}, &Stencil{})
 	s := c.String()
 	expected := "0 dummy"
 	if s != expected {
@@ -51,9 +51,9 @@ func TestStringCollection(t *testing.T) {
 func TestPruneCollection(t *testing.T) {
 	d := NewDummy(1, 1)
 	d.ExpiryTime = time.Minute * 10
-	c := NewBackendResources([]string{d.Name()}, &Stencil{})
+	c := NewBackendResources([]string{d.Type()}, &Stencil{})
 	c.Add(d)
-	hLength := func() int { return c.Collection[d.Name()].Len() }
+	hLength := func() int { return c.Collection[d.Type()].Len() }
 
 	// We should now have one element in the hashring.
 	if hLength() != 1 {
@@ -61,11 +61,11 @@ func TestPruneCollection(t *testing.T) {
 	}
 
 	// Expire the hashring node.
-	i, err := c.Collection[d.Name()].getIndex(d.Uid())
+	i, err := c.Collection[d.Type()].getIndex(d.Uid())
 	if err != nil {
 		t.Errorf("failed to retrieve existing resource: %s", err)
 	}
-	node := c.Collection[d.Name()].Hashnodes[i]
+	node := c.Collection[d.Type()].Hashnodes[i]
 	node.LastUpdate = time.Now().UTC().Add(-d.ExpiryTime - time.Minute)
 
 	c.Prune()

@@ -191,7 +191,7 @@ func populateTransportInfo(transport string, t *resources.Transport) error {
 	if len(words) < MinTransportWords {
 		return errors.New("not enough arguments in 'transport' line")
 	}
-	t.Type = words[1]
+	t.SetType(words[1])
 
 	host, port, err := net.SplitHostPort(words[2])
 	if err != nil {

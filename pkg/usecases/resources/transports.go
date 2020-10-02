@@ -38,15 +38,11 @@ func (t *Transport) String() string {
 		args = append(args, fmt.Sprintf("%s=%s", key, value))
 	}
 
-	return fmt.Sprintf("%s %s:%d %s %s", t.Type, t.Address.String(), t.Port, t.Fingerprint, strings.Join(args, " "))
+	return fmt.Sprintf("%s %s:%d %s %s", t.Type(), t.Address.String(), t.Port, t.Fingerprint, strings.Join(args, " "))
 }
 
 func (t *Transport) IsValid() bool {
-	return t.Type != "" && t.Address.String() != "" && t.Port != 0
-}
-
-func (t *Transport) Name() string {
-	return t.Type
+	return t.Type() != "" && t.Address.String() != "" && t.Port != 0
 }
 
 func (t *Transport) IsDepleted() bool {

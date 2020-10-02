@@ -289,13 +289,13 @@ func UnmarshalResources(rawResources []json.RawMessage) ([]core.Resource, error)
 			return nil, err
 		}
 
-		if base.Type == "" {
+		if base.Type() == "" {
 			return nil, errors.New("missing \"type\" field")
 		}
 
-		rFunc, ok := resources.ResourceMap[base.Type]
+		rFunc, ok := resources.ResourceMap[base.Type()]
 		if !ok {
-			return nil, fmt.Errorf("resource type %q not implemented", base.Type)
+			return nil, fmt.Errorf("resource type %q not implemented", base.Type())
 		}
 		r := rFunc()
 
@@ -304,7 +304,7 @@ func UnmarshalResources(rawResources []json.RawMessage) ([]core.Resource, error)
 		}
 
 		if !r.(core.Resource).IsValid() {
-			return nil, fmt.Errorf("resource %q is not valid", base.Type)
+			return nil, fmt.Errorf("resource %q is not valid", base.Type())
 		}
 		rs = append(rs, r.(core.Resource))
 	}
@@ -339,7 +339,7 @@ func (b *BackendContext) postResourcesHandler(w http.ResponseWriter, req *http.R
 
 	for _, r := range rs {
 		b.Resources.Add(r)
-		log.Printf("Added %s's %q resource to collection.", req.RemoteAddr, r.Name())
+		log.Printf("Added %s's %q resource to collection.", req.RemoteAddr, r.Type())
 	}
 }
 

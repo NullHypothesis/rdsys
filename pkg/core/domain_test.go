@@ -126,4 +126,10 @@ func TestResourceBase(t *testing.T) {
 	if _, exists := l["DE (1122)"]; !exists {
 		t.Errorf("failed to retrieve blocked location set from resource base")
 	}
+
+	rType := "foobar"
+	b.SetType(rType)
+	if b.Type() != rType {
+		t.Errorf("failed to retrieve the resource's type")
+	}
 }

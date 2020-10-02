@@ -118,14 +118,14 @@ func (h1 *Hashring) Diff(h2 *Hashring) *HashringDiff {
 		index, err := h2.getIndex(r1.Uid())
 		// The given resource is not present in h2, so it must be new.
 		if err != nil {
-			diff.New[r1.Name()] = append(diff.New[r1.Name()], r1)
+			diff.New[r1.Type()] = append(diff.New[r1.Type()], r1)
 			continue
 		}
 
 		// The given resource is present.  Did it change, though?
 		r2 := h2.Hashnodes[index].Elem
 		if r1.Oid() != r2.Oid() {
-			diff.Changed[r1.Name()] = append(diff.Changed[r1.Name()], r1)
+			diff.Changed[r1.Type()] = append(diff.Changed[r1.Type()], r1)
 		}
 	}
 
@@ -136,7 +136,7 @@ func (h1 *Hashring) Diff(h2 *Hashring) *HashringDiff {
 		_, err := h1.getIndex(r2.Uid())
 		// The given resource is not present in h1, so it must be gone.
 		if err != nil {
-			diff.Gone[r2.Name()] = append(diff.Gone[r2.Name()], r2)
+			diff.Gone[r2.Type()] = append(diff.Gone[r2.Type()], r2)
 		}
 	}
 

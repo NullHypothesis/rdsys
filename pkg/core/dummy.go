@@ -23,8 +23,10 @@ func (d *Dummy) Uid() Hashkey {
 func (d *Dummy) String() string {
 	return "dummy"
 }
-func (d *Dummy) Name() string {
+func (d *Dummy) Type() string {
 	return d.String()
+}
+func (d *Dummy) SetType(rType string) {
 }
 func (d *Dummy) IsDepleted() bool {
 	return false

@@ -23,7 +23,8 @@ type ResourceRepository interface {
 }
 
 type Resource interface {
-	Name() string
+	Type() string
+	SetType(string)
 	String() string
 	IsDepleted() bool
 	IsPublic() bool
@@ -194,7 +195,7 @@ func (s1 LocationSet) HasLocationsNotIn(s2 LocationSet) bool {
 // ResourceBase provides a data structure plus associated methods that are
 // shared across all of our resources.
 type ResourceBase struct {
-	Type      string `json:"type"`
+	rType     string `json:"type"`
 	Location  *Location
 	Id        uint
 	blockedIn LocationSet
@@ -208,6 +209,16 @@ func NewResourceBase() *ResourceBase {
 	r := &ResourceBase{}
 	r.blockedIn = make(LocationSet)
 	return r
+}
+
+// Type returns the resource's type.
+func (r *ResourceBase) Type() string {
+	return r.rType
+}
+
+// SetType sets the resource's type to the given type.
+func (r *ResourceBase) SetType(rType string) {
+	r.rType = rType
 }
 
 // SetState sets the resource's state to the given state.
