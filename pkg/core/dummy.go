@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// Dummy implements a simple Resource.
+// Dummy implements a simple Resource, which we use in unit tests.
 type Dummy struct {
 	ObjectId   Hashkey
 	UniqueId   Hashkey

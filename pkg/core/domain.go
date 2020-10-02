@@ -8,6 +8,9 @@ import (
 )
 
 const (
+	// The following constants represent the states that a resource can be in.
+	// Before rdsys had a chance to ask bridgestrap about a resource's state,
+	// it's untested.  Afterwards, it's either functional or not functional.
 	StateUntested = iota
 	StateFunctional
 	StateNotFunctional
@@ -254,6 +257,8 @@ func (r *ResourceBase) SetBlockedIn(l LocationSet) {
 	}
 }
 
+// ResourceRequest represents a request for resources.  Distributors use
+// ResourceRequest to request resources from the backend.
 type ResourceRequest struct {
 	// Name of requesting distributor.
 	RequestOrigin string             `json:"request_origin"`
@@ -262,6 +267,8 @@ type ResourceRequest struct {
 	Receiver      chan *ResourceDiff `json:"-"`
 }
 
+// HasResourceType returns true if the resource request contains the given
+// resource type.
 func (r *ResourceRequest) HasResourceType(rType1 string) bool {
 
 	for _, rType2 := range r.ResourceTypes {

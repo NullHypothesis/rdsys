@@ -19,23 +19,31 @@ type ResourceDiff struct {
 	Gone    ResourceMap `json:"gone"`
 }
 
+// Hashkey represents an index in a hashring.
 type Hashkey uint64
 
+// Hashnodes represents a node in a hashring.
 type Hashnode struct {
 	Hashkey    Hashkey
 	Elem       Resource
 	LastUpdate time.Time
 }
 
+// Hashring represents a hashring consisting of resources.
 type Hashring struct {
 	Hashnodes []*Hashnode
 	OnAddFunc OnAddFunc
 	sync.RWMutex
 }
 
+// FilterFunc takes as input a resource and returns true or false, depending on
+// its filtering criteria.
 type FilterFunc func(r Resource) bool
+
+// OnAddFunc takes as input a resource and does with it whatever it pleases.
 type OnAddFunc func(r Resource)
 
+// NewResourceDiff returns a new ResourceDiff.
 func NewResourceDiff() *ResourceDiff {
 	return &ResourceDiff{
 		New:     make(ResourceMap),
@@ -44,10 +52,13 @@ func NewResourceDiff() *ResourceDiff {
 	}
 }
 
+// NewHashnode returns a new hash node and sets its LastUpdate field to the
+// current UTC time.
 func NewHashnode(k Hashkey, r Resource) *Hashnode {
 	return &Hashnode{Hashkey: k, Elem: r, LastUpdate: time.Now().UTC()}
 }
 
+// NewHashring returns a new hashring.
 func NewHashring() *Hashring {
 
 	h := &Hashring{}
@@ -55,6 +66,7 @@ func NewHashring() *Hashring {
 	return h
 }
 
+// String returns a string representation of ResourceDiff.
 func (m *ResourceDiff) String() string {
 
 	s := []string{}
@@ -168,6 +180,8 @@ func (h *Hashring) Add(r Resource) error {
 	return nil
 }
 
+// ForceAdd adds the given resource to the hashring.  If the resource is
+// already present, it's silently overwritten.
 func (h *Hashring) ForceAdd(r Resource) {
 	h.Lock()
 	defer h.Unlock()

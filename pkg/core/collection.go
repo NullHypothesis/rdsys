@@ -8,6 +8,8 @@ import (
 )
 
 const (
+	// These constants represent resource event types.  The backend informs
+	// distributors if a resource is new, has changed, or has disappeared.
 	ResourceIsNew = iota
 	ResourceChanged
 	ResourceIsGone

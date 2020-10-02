@@ -14,17 +14,22 @@ type Stencil struct {
 	intervals []*Interval
 }
 
+// SplitHashring represents a hashring with a corresponding stencil.  The
+// backend uses one SplitHashring per resource type to map resources to
+// distributors.
 type SplitHashring struct {
 	*Hashring
 	*Stencil
 }
 
+// Interval represents a numerical interval.
 type Interval struct {
 	Begin int
 	End   int
 	Name  string
 }
 
+// NewSplitHashring returns a new SplitHashring.
 func NewSplitHashring() *SplitHashring {
 	return &SplitHashring{NewHashring(), &Stencil{}}
 }
@@ -84,14 +89,9 @@ func (s *Stencil) DoesDistOwnResource(r Resource, distName string) bool {
 // distributor name results in a function that deterministically maps to a
 // non-overlapping set of hashring resources.
 //
-//                  Hashring
-// +-------------------------------------+
-// \
-//  \
-//   \        Moat     Salmon
-//          +------+------------+
-//
-//  +----- Hash() ----+
+// Consider the following example: we have three obfs4 resources (O1, O2, and
+// O3) and two distributors (moat and https).  GetFilterFunc returns a filter
+// function that deterministically maps O1 and O2 to moat, and O3 to https.
 func (s *Stencil) GetFilterFunc(distName string) (FilterFunc, error) {
 
 	upperEnd, err := s.GetUpperEnd()
@@ -119,6 +119,8 @@ func (s *Stencil) GetFilterFunc(distName string) (FilterFunc, error) {
 	return f, nil
 }
 
+// GetForDist takes as input a distributor's name (e.g. "moat") and returns the
+// resources that are allocated for the given distributor.
 func (h *SplitHashring) GetForDist(distName string) ([]Resource, error) {
 
 	filterFunc, err := h.Stencil.GetFilterFunc(distName)
@@ -135,6 +137,7 @@ func (h *SplitHashring) GetForDist(distName string) ([]Resource, error) {
 	return resources, nil
 }
 
+// Len returns the length of the SplitHashring.
 func (h *SplitHashring) Len() int {
 	return h.Hashring.Len()
 }
