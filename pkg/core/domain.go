@@ -121,7 +121,29 @@ func (q *ResourceQueue) Update(r1 Resource) error {
 	return nil
 }
 
+// Search searches the resource queue for the given unique ID and either
+// returns the resource it found, or an error if the resource could not be
+// found.
+func (q *ResourceQueue) Search(key Hashkey) (Resource, error) {
+	if len(*q) == 0 {
+		return nil, errors.New("queue is empty")
+	}
+
+	for _, r := range *q {
+		if r.Uid() == key {
+			return r, nil
+		}
+	}
+	return nil, errors.New("resource not found")
+}
+
+// String returns a string representation of the resource map that's easy on
+// the eyes.
 func (m ResourceMap) String() string {
+	if len(m) == 0 {
+		return "empty"
+	}
+
 	s := []string{}
 	for rType, queue := range m {
 		s = append(s, fmt.Sprintf("%s: %d", rType, len(queue)))

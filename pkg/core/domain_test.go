@@ -20,6 +20,9 @@ func TestQueue(t *testing.T) {
 	if err := q.Update(d1); err == nil {
 		t.Errorf("failed to return error for empty queue")
 	}
+	if _, err := q.Search(0); err == nil {
+		t.Errorf("failed to return error when searching empty queue")
+	}
 
 	q.Enqueue(d0)
 	q.Enqueue(d1)
@@ -49,6 +52,14 @@ func TestQueue(t *testing.T) {
 	}
 	if len(q) != 1 {
 		t.Errorf("expected queue length of 1 but got %d", len(q))
+	}
+
+	// At this point, only d2 remains in the queue.
+	if _, err = q.Search(0); err == nil {
+		t.Errorf("failed to return error for non-existing unique ID")
+	}
+	if _, err = q.Search(5); err != nil {
+		t.Errorf("returned error for existing unique ID")
 	}
 
 	// Only d2 remains in our queue.  Let's update it, so it resembles d3.
@@ -145,5 +156,18 @@ func TestHasResourceType(t *testing.T) {
 	}
 	if !rr.HasResourceType("obfs4") {
 		t.Errorf("failed to return 'true' for existing type")
+	}
+}
+
+func TestResourceMapString(t *testing.T) {
+
+	m := make(ResourceMap)
+	if m.String() != "empty" {
+		t.Errorf("got incorrect string representation of resource map")
+	}
+
+	m["obfs4"] = []Resource{NewDummy(0, 0)}
+	if m.String() != "obfs4: 1" {
+		t.Errorf("got incorrect string representation of resource map")
 	}
 }
