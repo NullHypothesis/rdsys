@@ -72,19 +72,17 @@ func pruneExpiredResources(rcol core.BackendResources) {
 func queryBridgestrap(m delivery.Mechanism) core.OnAddFunc {
 
 	return func(r core.Resource) {
-		log.Printf("Making bridgestrap request.")
 		req := BridgestrapRequest{r.String()}
 		resp := BridgestrapResponse{}
 		// This request can take several minutes to complete.
 		if err := m.MakeJsonRequest(req, &resp); err != nil {
-			log.Printf("Request failed because: %s", err)
+			log.Printf("Bridgestrap request failed: %s", err)
 			return
 		}
 
 		if resp.Functional {
 			r.SetState(core.StateFunctional)
 		} else {
-			log.Printf("%q not functional because %q", r.String(), resp.Error)
 			r.SetState(core.StateNotFunctional)
 		}
 	}
