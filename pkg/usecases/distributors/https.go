@@ -105,7 +105,7 @@ func (d *HttpsDistributor) handleBridgeRequest(w http.ResponseWriter, r *http.Re
 		if err != nil {
 			fmt.Fprintf(w, "Error while fetching bridge: %s", err)
 		} else {
-			fmt.Fprintf(w, "%s bridge: <tt>%s</tt>", r.Name(), r.String())
+			fmt.Fprintf(w, "%s bridge: <tt>%s</tt>", r.Type(), r.String())
 		}
 	}
 }
