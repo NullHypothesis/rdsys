@@ -118,7 +118,7 @@ func TestHasLocationNotIn(t *testing.T) {
 
 func TestResourceBase(t *testing.T) {
 
-	b := &ResourceBase{blockedIn: make(LocationSet)}
+	b := &ResourceBase{RBlockedIn: make(LocationSet)}
 
 	if b.State() != StateUntested {
 		t.Errorf("resource base has wrong default state")
