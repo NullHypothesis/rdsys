@@ -261,6 +261,17 @@ func (s *SalmonDistributor) GetProxies(userId int, rType string) ([]core.Resourc
 		return nil, errors.New("requested resource type does not exist")
 	}
 
+	// Is Salmon handing out the resources that is requested?
+	isSupported := false
+	for _, supportedType := range s.cfg.Distributors.Salmon.Resources {
+		if rType == supportedType {
+			isSupported = true
+		}
+	}
+	if !isSupported {
+		return nil, errors.New("requested resource type not supported")
+	}
+
 	if user.Banned {
 		return nil, errors.New("user is blocked and therefore unable to get proxies")
 	}
