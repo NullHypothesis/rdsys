@@ -73,15 +73,15 @@ type User struct {
 	Id     int
 	Banned bool
 	// The probability of the client *not* being an agent is the product of the
-	// product of the probabilities of innocence of every block event, the
-	// client was involved in.  The complement of this product is the client's
+	// probabilities of innocence of each proxy blocking event that the client
+	// was involved in.  The complement of this probability is the client's
 	// suspicion.  We permanently ban client whose suspicion meets or exceeds
 	// our suspicion threshold.
-	Innocence float64
-	Trust     Trust
-	InvitedBy *User `json:"-"` // We have to omit this field to prevent cycles.
-	Invited   []*User
-	Proxies   []core.Resource
+	InnocencePs []float64
+	Trust       Trust
+	InvitedBy   *User `json:"-"` // We have to omit this field to prevent cycles.
+	Invited     []*User
+	Proxies     []core.Resource
 	// The last time the user got promoted to a higher trust level.
 	LastPromoted time.Time
 }
@@ -365,11 +365,16 @@ func (p *Proxy) SetBlocked() {
 	}
 
 	for _, user := range p.Users {
-		user.Innocence *= (float64(numUsers) - 1.0) / float64(numUsers)
+		// Add blocking event and determine user's innocence score.
+		user.InnocencePs = append(user.InnocencePs, (float64(numUsers)-1.0)/float64(numUsers))
+		score := 1.0
+		for _, p := range user.InnocencePs {
+			score *= p
+		}
 
 		// A user's suspicion is the complement of her innocence.
-		if 1-user.Innocence >= MaxSuspicion {
-			log.Printf("Banning user %d with suspicion %.2f", user.Id, 1-user.Innocence)
+		if 1-score >= MaxSuspicion {
+			log.Printf("Banning user %d with suspicion %.2f", user.Id, 1-score)
 			user.Banned = true
 		}
 	}
