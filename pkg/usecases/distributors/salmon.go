@@ -99,6 +99,8 @@ func NewSalmonDistributor() *SalmonDistributor {
 	salmon := &SalmonDistributor{}
 	salmon.TokenCache = make(map[string]*TokenMetaInfo)
 	salmon.Users = make(map[int]*User)
+	salmon.AssignedProxies = make(core.ResourceMap)
+	salmon.UnassignedProxies = make(core.ResourceMap)
 	return salmon
 }
 
@@ -137,8 +139,6 @@ func (s *SalmonDistributor) Init(cfg *internal.Config) {
 	s.NewUser(UntouchableTrustLevel, 0)
 	s.cfg = cfg
 	s.shutdown = make(chan bool)
-	s.AssignedProxies = make(core.ResourceMap)
-	s.UnassignedProxies = make(core.ResourceMap)
 
 	log.Printf("Initialising resource stream.")
 	s.ipc = mechanisms.NewHttpsIpc("http://" + cfg.Backend.ApiAddress + cfg.Backend.ResourceStreamEndpoint)
