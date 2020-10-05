@@ -8,14 +8,11 @@ package distributors
 import (
 	"crypto/rand"
 	"encoding/base32"
-	"encoding/json"
 	"errors"
 	"log"
 	"math"
 	"sync"
 	"time"
-
-	"golang.org/x/crypto/nacl/secretbox"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/internal"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
