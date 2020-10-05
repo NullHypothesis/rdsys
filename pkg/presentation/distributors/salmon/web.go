@@ -154,7 +154,15 @@ func Init(cfg *internal.Config) {
 
 	srv.Addr = cfg.Distributors.Salmon.ApiAddress
 	log.Printf("Starting Web server at %s.", srv.Addr)
-	if err := srv.ListenAndServe(); err != nil {
+
+	var err error
+	if cfg.Distributors.Salmon.KeyFile != "" && cfg.Distributors.Salmon.CertFile != "" {
+		err = srv.ListenAndServeTLS(cfg.Distributors.Salmon.CertFile,
+			cfg.Distributors.Salmon.KeyFile)
+	} else {
+		err = srv.ListenAndServe()
+	}
+	if err != nil {
 		log.Printf("Web API shut down: %s", err)
 	}
 }

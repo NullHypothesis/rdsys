@@ -44,6 +44,8 @@ type SalmonDistConfig struct {
 	ApiAddress       string   `json:"api_address"`
 	WorkingDirectory string   `json:"working_directory"`
 	Resources        []string `json:"resources"`
+	CertFile         string   `json:"cert_file"`
+	KeyFile          string   `json:"key_file"`
 }
 
 // LoadConfig loads the given JSON configuration file and returns the resulting
