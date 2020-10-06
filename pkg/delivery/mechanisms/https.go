@@ -174,7 +174,6 @@ func (ctx *HttpsIpcContext) sendRequest(req interface{}, bearerToken string) (*h
 		return nil, err
 	}
 
-	log.Printf("Making new %s request to: %s", http.MethodGet, ctx.apiEndpoint)
 	httpReq, err := http.NewRequest(http.MethodGet, ctx.apiEndpoint, bytes.NewBuffer(encoded))
 	if err != nil {
 		return nil, err
