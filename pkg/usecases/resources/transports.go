@@ -3,6 +3,7 @@ package resources
 import (
 	"fmt"
 	"hash/crc64"
+	"sort"
 	"strings"
 	"time"
 
@@ -36,6 +37,10 @@ func (t *Transport) String() string {
 	for key, value := range t.Parameters {
 		args = append(args, fmt.Sprintf("%s=%s", key, value))
 	}
+	// Guarantee deterministic ordering of our resource's string
+	// representation.  The exact order doesn't matter because Tor doesn't
+	// care.
+	sort.Strings(args)
 
 	return fmt.Sprintf("%s %s:%d %s %s", t.Type(), t.Address.String(), t.Port, t.Fingerprint, strings.Join(args, " "))
 }
