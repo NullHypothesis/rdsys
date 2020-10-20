@@ -23,7 +23,7 @@ type Transport struct {
 
 // NewTransport returns a new Transport object.
 func NewTransport() *Transport {
-	t := &Transport{}
+	t := &Transport{ResourceBase: *core.NewResourceBase()}
 	// As of 2020-05-19, all of our pluggable transports are based on TCP, so
 	// we might as well make it the default for now.
 	t.Protocol = ProtoTypeTCP
@@ -42,7 +42,9 @@ func (t *Transport) String() string {
 	// care.
 	sort.Strings(args)
 
-	return fmt.Sprintf("%s %s:%d %s %s", t.Type(), t.Address.String(), t.Port, t.Fingerprint, strings.Join(args, " "))
+	strRep := fmt.Sprintf("%s %s:%d %s %s",
+		t.Type(), t.Address.String(), t.Port, t.Fingerprint, strings.Join(args, " "))
+	return strings.TrimSpace(strRep)
 }
 
 func (t *Transport) IsValid() bool {

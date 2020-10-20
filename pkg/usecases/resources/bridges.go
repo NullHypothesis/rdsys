@@ -3,10 +3,10 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
+	"hash/crc64"
 	"net"
 	"reflect"
-
-	"hash/crc64"
+	"strings"
 	"sync"
 	"time"
 
@@ -73,7 +73,7 @@ func NewBridges() *Bridges {
 
 // NewBridge allocates and returns a new Bridge object.
 func NewBridge() *Bridge {
-	b := &Bridge{}
+	b := &Bridge{ResourceBase: *core.NewResourceBase()}
 	// A bridge (without pluggable transports) is always running vanilla Tor
 	// over TCP.
 	b.Protocol = ProtoTypeTCP
@@ -97,7 +97,7 @@ func (b *Bridge) IsValid() bool {
 }
 
 func (b *Bridge) GetBridgeLine() string {
-	return fmt.Sprintf("%s:%d %s", b.Address.String(), b.Port, b.Fingerprint)
+	return strings.TrimSpace(fmt.Sprintf("%s:%d %s", b.Address.String(), b.Port, b.Fingerprint))
 }
 
 func (b *Bridge) Oid() core.Hashkey {

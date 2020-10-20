@@ -215,6 +215,11 @@ type ResourceBase struct {
 	state      int
 }
 
+// NewResourceBase returns a new ResourceBase.
+func NewResourceBase() *ResourceBase {
+	return &ResourceBase{RBlockedIn: make(LocationSet)}
+}
+
 // Type returns the resource's type.
 func (r *ResourceBase) Type() string {
 	return r.RType
