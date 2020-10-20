@@ -7,8 +7,8 @@
         "api_endpoint_resource_stream": "/resource-stream",
         "api_endpoint_targets": "/targets",
         "api_tokens": {
-                "https": "8HC5KfkOuk6BVarAw4xCRQH3wt7cqP8T/StgndPak8Y=",
-                "salmon": "TG01lCmClSWYyesi7NYJ+NAYJ9YTw2bI5fs9yYscBbs="
+                "https": "HttpsApiTokenPlaceholder",
+                "salmon": "SalmonApiTokenPlaceholder"
         },
         "certfile": "",
         "keyfile": "",
