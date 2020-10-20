@@ -24,14 +24,24 @@ const (
 	ExtraInfoPrefix      = "extra-info"
 )
 
+// BridgestrapRequest represents a request for bridgestrap.  Here's what its
+// API look like: https://gitlab.torproject.org/phw/bridgestrap#input
 type BridgestrapRequest struct {
-	BridgeLine string `json:"bridge_line"`
+	BridgeLines []string `json:"bridge_lines"`
 }
 
+// BridgeTest represents the status of a single bridge in bridgestrap's
+// response.
+type BridgeTest struct {
+	Functional bool   `json:"functional"`
+	Error      string `json:"error,omitempty"`
+}
+
+// BridgestrapResponse represents bridgestrap's response.
 type BridgestrapResponse struct {
-	Functional bool    `json:"functional"`
-	Error      string  `json:"error,omitempty"`
-	Time       float64 `json:"time"`
+	Bridges map[string]*BridgeTest `json:"bridge_results"`
+	Time    float64                `json:"time"`
+	Error   string                 `json:"error,omitempty"`
 }
 
 func InitKraken(cfg *Config, shutdown chan bool, ready chan bool, rcol core.BackendResources) {
@@ -72,17 +82,23 @@ func pruneExpiredResources(rcol core.BackendResources) {
 func queryBridgestrap(m delivery.Mechanism) core.OnAddFunc {
 
 	return func(r core.Resource) {
-		req := BridgestrapRequest{r.String()}
+		req := BridgestrapRequest{[]string{r.String()}}
 		resp := BridgestrapResponse{}
-		// This request can take several minutes to complete.
 		if err := m.MakeJsonRequest(req, &resp); err != nil {
 			log.Printf("Bridgestrap request failed: %s", err)
 			return
 		}
 
-		if resp.Functional {
+		bridgeTest, exists := resp.Bridges[r.String()]
+		if !exists {
+			log.Printf("Bug: Bridgestrap's response doesn't contain requested resource: %v", resp)
+			return
+		}
+
+		if bridgeTest.Functional {
 			r.SetState(core.StateFunctional)
 		} else {
+			log.Printf("Resource %q not functional because: %s", r.String(), bridgeTest.Error)
 			r.SetState(core.StateNotFunctional)
 		}
 	}
