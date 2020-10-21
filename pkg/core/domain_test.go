@@ -95,6 +95,20 @@ func TestLocationString(t *testing.T) {
 	}
 }
 
+func TestLocationSetString(t *testing.T) {
+
+	s := LocationSet{"BY (1234)": true, "BE (4321)": true}
+	// Maps are orderless, so we can end up with either one of the following
+	// two representations.
+	p1 := "BY (1234), BE (4321)"
+	p2 := "BE (4321), BY (1234)"
+
+	str := s.String()
+	if str != p1 && str != p2 {
+		t.Errorf("incorrect representation of location set")
+	}
+}
+
 func TestHasLocationNotIn(t *testing.T) {
 
 	s1 := LocationSet{"BY (1234)": true, "BE (4321)": true}

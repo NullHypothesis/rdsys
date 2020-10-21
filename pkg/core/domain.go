@@ -195,6 +195,16 @@ func (l *Location) String() string {
 // use structs as map keys) to 'true'.
 type LocationSet map[string]bool
 
+// String returns a string representation of the given location set.
+func (l LocationSet) String() string {
+
+	ls := []string{}
+	for key, _ := range l {
+		ls = append(ls, key)
+	}
+	return strings.Join(ls, ", ")
+}
+
 // HasLocationsNotIn returns true if s1 contains at least one location that is
 // not in s2.
 func (s1 LocationSet) HasLocationsNotIn(s2 LocationSet) bool {
