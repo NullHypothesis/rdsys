@@ -1,9 +1,26 @@
 package internal
 
 import (
+	"crypto/rand"
+	"encoding/base32"
 	"encoding/gob"
 	"os"
 )
+
+// GetRandBase32 takes as input the number of desired bytes and returns a
+// Base32-encoded string consisting of the given number of cryptographically
+// secure random bytes.  If anything went wrong, an error is returned.
+func GetRandBase32(numBytes int) (string, error) {
+
+	rawStr := make([]byte, numBytes)
+	_, err := rand.Read(rawStr)
+	if err != nil {
+		return "", err
+	}
+	str := base32.StdEncoding.EncodeToString(rawStr)
+
+	return str, nil
+}
 
 func Serialise(filename string, object interface{}) error {
 

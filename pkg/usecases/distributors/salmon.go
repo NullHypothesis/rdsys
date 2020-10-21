@@ -6,8 +6,6 @@
 package distributors
 
 import (
-	"crypto/rand"
-	"encoding/base32"
 	"errors"
 	"log"
 	"math"
@@ -35,7 +33,9 @@ const (
 	UntouchableTrustLevel = Trust(MaxTrustLevel + 1)
 	MaxClients            = 10
 	SalmonTickerInterval  = time.Hour * 24
+	// Number of bytes.
 	InvitationTokenLength = 20
+	UserSecretIdLength    = 20
 	InvitationTokenExpiry = time.Hour * 24 * 7
 	NumProxiesPerUser     = 3 // TODO: This should be configurable.
 	TokenCacheFile        = "token-cache.bin"
@@ -52,7 +52,7 @@ type SalmonDistributor struct {
 
 	TokenCache        map[string]*TokenMetaInfo
 	TokenCacheMutex   sync.Mutex
-	Users             map[int]*User
+	Users             map[string]*User
 	AssignedProxies   core.ResourceMap
 	UnassignedProxies core.ResourceMap
 }
@@ -64,14 +64,14 @@ type Trust int
 // invitation token.  In particular, we keep track of when an invitation token
 // was issued and who issued the token.
 type TokenMetaInfo struct {
-	InviterId int
-	IssueTime time.Time
+	SecretInviterId string
+	IssueTime       time.Time
 }
 
 // User represents a user account.
 type User struct {
-	Id     int
-	Banned bool
+	SecretId string
+	Banned   bool
 	// The probability of the client *not* being an agent is the product of the
 	// probabilities of innocence of each proxy blocking event that the client
 	// was involved in.  The complement of this probability is the client's
@@ -98,45 +98,43 @@ type Proxy struct {
 func NewSalmonDistributor() *SalmonDistributor {
 	salmon := &SalmonDistributor{}
 	salmon.TokenCache = make(map[string]*TokenMetaInfo)
-	salmon.Users = make(map[int]*User)
+	salmon.Users = make(map[string]*User)
 	salmon.AssignedProxies = make(core.ResourceMap)
 	salmon.UnassignedProxies = make(core.ResourceMap)
 	return salmon
 }
 
-func (s *SalmonDistributor) NewUser(trust Trust, inviterId int) *User {
-	maxId := 0
-	for id, _ := range s.Users {
-		if id >= maxId {
-			maxId = id + 1
-		}
+func (s *SalmonDistributor) NewUser(trust Trust, inviterId string) (*User, error) {
+	secretId, err := internal.GetRandBase32(UserSecretIdLength)
+	if err != nil {
+		return nil, err
 	}
 
 	u := &User{}
 	inviter, exists := s.Users[inviterId]
 	if !exists {
-		// We're dealing with the server admin.
+		log.Println("Creating new server admin account.")
 		inviter = nil
 	} else {
 		inviter.Invited = append(inviter.Invited, u)
 	}
 
 	u.InvitedBy = inviter
-	u.Id = maxId
 	u.Trust = trust
 	u.LastPromoted = time.Now().UTC()
 
-	s.Users[maxId] = u
-	log.Printf("Created new user with ID %d.", maxId)
+	s.Users[secretId] = u
+	log.Printf("Created new user with secret ID %s.", secretId)
 
-	return u
+	return u, nil
+}
 }
 
 // Init initialises the given Salmon distributor.
 func (s *SalmonDistributor) Init(cfg *internal.Config) {
 	log.Printf("Initialising %s distributor.", SalmonDistName)
 
-	s.NewUser(UntouchableTrustLevel, 0)
+	s.NewUser(UntouchableTrustLevel, "")
 	s.cfg = cfg
 	s.shutdown = make(chan bool)
 
@@ -250,9 +248,9 @@ func (s *SalmonDistributor) findProxies(invitee *User, rType string) []core.Reso
 }
 
 // GetProxies attempts to return proxies for the given user.
-func (s *SalmonDistributor) GetProxies(userId int, rType string) ([]core.Resource, error) {
+func (s *SalmonDistributor) GetProxies(secretId string, rType string) ([]core.Resource, error) {
 
-	user, exists := s.Users[userId]
+	user, exists := s.Users[secretId]
 	if !exists {
 		return nil, errors.New("user ID does not exists")
 	}
@@ -386,7 +384,7 @@ func (p *Proxy) SetBlocked() {
 
 		// A user's suspicion is the complement of her innocence.
 		if 1-score >= MaxSuspicion {
-			log.Printf("Banning user %d with suspicion %.2f", user.Id, 1-score)
+			log.Printf("Banning user %q with suspicion %.2f", user.SecretId, 1-score)
 			user.Banned = true
 		}
 	}
@@ -402,7 +400,7 @@ func (s *SalmonDistributor) pruneTokenCache() {
 	for token, metaInfo := range s.TokenCache {
 		if time.Since(metaInfo.IssueTime) > InvitationTokenExpiry {
 			// Time to delete the token.
-			log.Printf("Deleting expired token %q issued by user %d", token, metaInfo.InviterId)
+			log.Printf("Deleting expired token %q issued by user %q.", token, metaInfo.SecretInviterId)
 			delete(s.TokenCache, token)
 		}
 	}
@@ -411,9 +409,9 @@ func (s *SalmonDistributor) pruneTokenCache() {
 
 // CreateInvite returns an invitation token if the given user is allowed to
 // issue invites, and an error otherwise.
-func (s *SalmonDistributor) CreateInvite(userId int) (string, error) {
+func (s *SalmonDistributor) CreateInvite(secretId string) (string, error) {
 
-	u, exists := s.Users[userId]
+	u, exists := s.Users[secretId]
 	if !exists {
 		return "", errors.New("user ID does not exists")
 	}
@@ -430,15 +428,12 @@ func (s *SalmonDistributor) CreateInvite(userId int) (string, error) {
 	defer s.TokenCacheMutex.Unlock()
 
 	var token string
+	var err error
 	for {
-		// An invitation token is a bunch of bytes from a CSPRNG, which are
-		// then encoded as Base32.
-		rawToken := make([]byte, InvitationTokenLength)
-		_, err := rand.Read(rawToken)
+		token, err = internal.GetRandBase32(InvitationTokenLength)
 		if err != nil {
 			return "", err
 		}
-		token = base32.StdEncoding.EncodeToString(rawToken)
 
 		if _, exists := s.TokenCache[token]; !exists {
 			break
@@ -448,49 +443,50 @@ func (s *SalmonDistributor) CreateInvite(userId int) (string, error) {
 			log.Printf("Newly created token already exists.  Trying again.")
 		}
 	}
-	log.Printf("User %d issued new invite token %q.", u.Id, token)
+	log.Printf("User %q issued new invite token %q.", u.SecretId, token)
 
 	// Add token to our token cache, where it remains until it's redeemed or
 	// until it expires.
-	s.TokenCache[token] = &TokenMetaInfo{u.Id, time.Now().UTC()}
+	s.TokenCache[token] = &TokenMetaInfo{secretId, time.Now().UTC()}
 
 	return token, nil
 }
 
 // RedeemInvite redeems the given token.  If redemption was successful, the
-// function returns the new user; otherwise an error.
-func (s *SalmonDistributor) RedeemInvite(token string) (int, error) {
+// function returns the new user's secret ID; otherwise an error.
+func (s *SalmonDistributor) RedeemInvite(token string) (string, error) {
 
 	s.TokenCacheMutex.Lock()
 	defer s.TokenCacheMutex.Unlock()
 
 	metaInfo, exists := s.TokenCache[token]
 	if !exists {
-		return 0, errors.New("invalid invite token")
+		return "", errors.New("invite token does not exist")
 	}
 	// Remove token from our token cache.
 	delete(s.TokenCache, token)
 
 	// Is our token still valid?
 	if time.Since(metaInfo.IssueTime) > InvitationTokenExpiry {
-		return 0, errors.New("invite token already expired")
+		return "", errors.New("invite token already expired")
 	}
 
-	inviter, exists := s.Users[metaInfo.InviterId]
+	inviter, exists := s.Users[metaInfo.SecretInviterId]
 	if !exists {
 		log.Printf("Bug: could not find valid user for invite token.")
+		return "", errors.New("invite token came from non-existing user (this is a bug)")
 	}
 
-	// Create and return new user account.
-	u := s.NewUser(inviter.Trust-1, inviter.Id)
-	return u.Id, nil
+	u, err := s.NewUser(inviter.Trust-1, inviter.SecretId)
+	if err != nil {
+		return "", err
+	}
+
+	return u.SecretId, nil
 }
 
 // Register lets a user sign up for Salmon.
-func (s *SalmonDistributor) Register() (int, error) {
+func (s *SalmonDistributor) Register() (string, error) {
 
-	// TODO: Figure out how users can sign up for Salmon.  The following is a
-	// dummy implementation that facilitates testing.
-	u := s.NewUser(MaxTrustLevel, 0)
-	return u.Id, nil
+	return "", errors.New("registration not yet implemented")
 }

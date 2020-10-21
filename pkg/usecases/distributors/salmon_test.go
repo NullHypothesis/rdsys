@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
 
 func setup() *SalmonDistributor {
@@ -114,25 +115,25 @@ func TestUpdateProxyTrust(t *testing.T) {
 
 func TestTokenCache(t *testing.T) {
 	salmon := NewSalmonDistributor()
-	u := &User{}
-	salmon.Users[u.Id] = u
+	u := &User{SecretId: "foo"}
+	salmon.Users[u.SecretId] = u
 
 	// Banned users are not allowed to invite.
 	u.Banned = true
-	_, err := salmon.CreateInvite(u.Id)
+	_, err := salmon.CreateInvite(u.SecretId)
 	if err == nil {
 		t.Errorf("banned users are not allowed to invite")
 	}
 	u.Banned = false
 
 	// New users are not allowed to invite.
-	_, err = salmon.CreateInvite(u.Id)
+	_, err = salmon.CreateInvite(u.SecretId)
 	if err == nil {
 		t.Errorf("user should not yet be allowed to issue invites")
 	}
 
 	u.Trust = MaxTrustLevel
-	token, err := salmon.CreateInvite(u.Id)
+	token, err := salmon.CreateInvite(u.SecretId)
 	if err != nil {
 		t.Errorf("failed to create invite token: %s", err)
 	}
@@ -170,7 +171,7 @@ func TestTokenCache(t *testing.T) {
 	}
 
 	// Create another invite, which we'll let expire.
-	token, err = salmon.CreateInvite(u.Id)
+	token, err = salmon.CreateInvite(u.SecretId)
 	if err != nil {
 		t.Errorf("failed to create invite token: %s", err)
 	}
@@ -188,7 +189,7 @@ func TestTokenCache(t *testing.T) {
 func TestPruneTokenCache(t *testing.T) {
 	salmon := NewSalmonDistributor()
 	expiredTime := time.Now().UTC().Add(-InvitationTokenExpiry - time.Minute)
-	salmon.TokenCache["DummyToken"] = &TokenMetaInfo{0, expiredTime}
+	salmon.TokenCache["DummyToken"] = &TokenMetaInfo{"foo", expiredTime}
 	if len(salmon.TokenCache) != 1 {
 		t.Errorf("failed to add expired token to cache")
 	}

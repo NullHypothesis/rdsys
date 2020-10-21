@@ -47,3 +47,20 @@ func TestSerialise(t *testing.T) {
 		t.Errorf("deserialised data corrupt")
 	}
 }
+
+func TestGetRandBase32(t *testing.T) {
+
+	str1, err := GetRandBase32(10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Base32 encodes five bytes to eight characters.
+	if len(str1) != 16 {
+		t.Error("unexpected length of random string")
+	}
+
+	str2, _ := GetRandBase32(10)
+	if str1 == str2 {
+		t.Error("two subsequent calls resulted in identical random strings")
+	}
+}

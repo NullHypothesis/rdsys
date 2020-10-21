@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -22,17 +21,12 @@ func ProxiesHandler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
-	rawId, ok := r.Form["id"]
+	secretId, ok := r.Form["secret-id"]
 	if !ok {
-		http.Error(w, "no field 'id' given", http.StatusBadRequest)
+		http.Error(w, "no field 'secret-id' given", http.StatusBadRequest)
 		return
-	} else if len(rawId) != 1 {
-		http.Error(w, "need excactly one 'id' field", http.StatusBadRequest)
-		return
-	}
-	id, err := strconv.Atoi(rawId[0])
-	if err != nil {
-		http.Error(w, "'id' field not a number", http.StatusBadRequest)
+	} else if len(secretId) != 1 {
+		http.Error(w, "need excactly one 'secret-id' field", http.StatusBadRequest)
 		return
 	}
 	rType, ok := r.Form["type"]
@@ -40,7 +34,7 @@ func ProxiesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no field 'type' given", http.StatusBadRequest)
 		return
 	}
-	proxies, err := salmon.GetProxies(id, rType[0])
+	proxies, err := salmon.GetProxies(secretId[0], rType[0])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -61,12 +55,12 @@ func ProxiesHandler(w http.ResponseWriter, r *http.Request) {
 
 // AccountHandler handles requests for /account.
 func AccountHandler(w http.ResponseWriter, r *http.Request) {
-	id, err := salmon.Register()
+	secretId, err := salmon.Register()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprintf(w, "new user id: %d", id)
+	fmt.Fprintf(w, "new user secret-id: %s", secretId)
 }
 
 // InviteHandler handles requests for /invite.
@@ -74,21 +68,15 @@ func InviteHandler(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	}
-	rawId, ok := r.Form["id"]
+	secretId, ok := r.Form["secret-id"]
 	if !ok {
-		http.Error(w, "no field 'id' given", http.StatusBadRequest)
+		http.Error(w, "no field 'secret-id' given", http.StatusBadRequest)
 		return
-	} else if len(rawId) != 1 {
-		http.Error(w, "need excactly one 'id' field", http.StatusBadRequest)
-		return
-	}
-	id, err := strconv.Atoi(rawId[0])
-	if err != nil {
-		http.Error(w, "'id' field not a number", http.StatusBadRequest)
+	} else if len(secretId) != 1 {
+		http.Error(w, "need excactly one 'secret-id' field", http.StatusBadRequest)
 		return
 	}
-
-	token, err := salmon.CreateInvite(id)
+	token, err := salmon.CreateInvite(secretId[0])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -110,12 +98,12 @@ func RedeemHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := salmon.RedeemInvite(token[0])
+	secretId, err := salmon.RedeemInvite(token[0])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprintf(w, "new user id: %d", id)
+	fmt.Fprintf(w, "new user secret-id: %s", secretId)
 }
 
 // Init is the entry point to Salmon's Web frontend.  It spins up the Web
