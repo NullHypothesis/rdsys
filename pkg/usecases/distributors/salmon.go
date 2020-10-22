@@ -124,10 +124,61 @@ func (s *SalmonDistributor) NewUser(trust Trust, inviterId string) (*User, error
 	u.LastPromoted = time.Now().UTC()
 
 	s.Users[secretId] = u
-	log.Printf("Created new user with secret ID %s.", secretId)
+	log.Printf("Created new user with secret ID %q.", secretId)
 
 	return u, nil
 }
+
+// convertToProxies converts the Resource elements in the given ResourceDiff to
+// Proxy elements, which extend Resources.
+func convertToProxies(diff *core.ResourceDiff) {
+
+	convert := func(m core.ResourceMap) {
+		for _, rQueue := range m {
+			for i, r := range rQueue {
+				rQueue[i] = &Proxy{Resource: r}
+			}
+		}
+	}
+	convert(diff.New)
+	convert(diff.Changed)
+	convert(diff.Gone)
+}
+
+// processDiff takes as input a resource diff and feeds it into Salmon's
+// existing set of resources.
+// * New proxies are added to UnassignedProxies.
+// *
+func (s *SalmonDistributor) processDiff(diff *core.ResourceDiff) {
+
+	convertToProxies(diff)
+	for rType, rQueue := range diff.Changed {
+		for _, r1 := range rQueue {
+			// Is the given resource blocked in a new place?
+			q, exists := s.AssignedProxies[rType]
+			if !exists {
+				continue
+			}
+			r2, err := q.Search(r1.Uid())
+			if err == nil {
+				if r1.BlockedIn().HasLocationsNotIn(r2.BlockedIn()) {
+					r2.(*Proxy).SetBlocked()
+				}
+			}
+		}
+	}
+
+	s.UnassignedProxies.ApplyDiff(diff)
+	// New proxies only belong in UnassignedProxies.
+	diff.New = nil
+	s.AssignedProxies.ApplyDiff(diff)
+	log.Printf("Unassigned proxies: %s; assigned proxies: %s",
+		s.UnassignedProxies, s.AssignedProxies)
+
+	// Potential problems:
+	// 0. How should we handle new proxies that are blocked already?
+	// 1. Gone proxies: Users are assigned to proxies that no longer exist.
+	//    Maybe add a destructor to proxies?
 }
 
 // Init initialises the given Salmon distributor.
@@ -294,13 +345,7 @@ func (s *SalmonDistributor) Housekeeping(rStream chan *core.ResourceDiff) {
 	for {
 		select {
 		case diff := <-rStream:
-			log.Printf("Got diff with %d new, %d changed, and %d gone resource type.",
-				len(diff.New), len(diff.Changed), len(diff.Gone))
-			s.UnassignedProxies.ApplyDiff(diff)
-			diff.New = nil
-			s.AssignedProxies.ApplyDiff(diff)
-			// TODO: Deal with proxy assignments.
-			log.Printf("Unassigned proxies: %s; assigned proxies: %s", s.UnassignedProxies, s.AssignedProxies)
+			s.processDiff(diff)
 		case <-s.shutdown:
 			log.Printf("Shutting down housekeeping.")
 			return

@@ -199,3 +199,31 @@ func TestPruneTokenCache(t *testing.T) {
 		t.Errorf("failed to prune token cache")
 	}
 }
+
+func TestProcessDiff(t *testing.T) {
+	salmon := NewSalmonDistributor()
+
+	// Create a user, a proxy, and assign the proxy to the user.
+	u, _ := salmon.NewUser(0, "")
+	p := &Proxy{Resource: resources.NewTransport()}
+	p.Users = append(p.Users, u)
+
+	queue := core.ResourceQueue{p}
+	salmon.AssignedProxies[resources.ResourceTypeObfs4] = queue
+
+	diff := core.NewResourceDiff()
+	// Create a new copy of the proxy and mark it as blocked.
+	pNew := &Proxy{Resource: resources.NewTransport()}
+	pNew.SetBlockedIn(core.LocationSet{"no": true})
+	diff.Changed = core.ResourceMap{resources.ResourceTypeObfs4: core.ResourceQueue{pNew}}
+	salmon.processDiff(diff)
+
+	// User should now have a blocking event.
+	if len(u.InnocencePs) == 0 {
+		t.Errorf("expected 1 blocking event but got %d", len(u.InnocencePs))
+	}
+	// User should now also be banned.
+	if !u.Banned {
+		t.Errorf("failed to ban user")
+	}
+}
