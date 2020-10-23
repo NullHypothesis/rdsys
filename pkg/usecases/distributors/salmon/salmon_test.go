@@ -12,90 +12,6 @@ import (
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
 
-func TestUpdateUserTrust(t *testing.T) {
-	u := &User{}
-	u.Trust = -2
-
-	u.LastPromoted = time.Now().UTC()
-	u.UpdateTrust()
-	if u.Trust != -2 {
-		t.Errorf("incorrect user trust level")
-	}
-
-	// Ten seconds before midnight means no promotion.
-	u.LastPromoted = time.Now().UTC().Add(-time.Hour*24*2 + time.Second*10)
-	u.UpdateTrust()
-	if u.Trust != -2 {
-		t.Errorf("incorrect user trust level: %d", u.Trust)
-	}
-
-	// After 2^abs(-2 + 1) days, the user should be promoted to trust level -1.
-	u.LastPromoted = time.Now().UTC().Add(-time.Hour*24*2 - time.Second*10)
-	u.UpdateTrust()
-	if u.Trust != -1 {
-		t.Errorf("incorrect user trust level")
-	}
-
-	// After 2^abs(-1 + 1) days, the user should be promoted to trust level 0.
-	u.LastPromoted = time.Now().UTC().Add(-time.Hour*24 - time.Second*10)
-	u.UpdateTrust()
-	if u.Trust != 0 {
-		t.Errorf("incorrect user trust level")
-	}
-
-	// After 2^abs(0 + 1) days, the user should be promoted to trust level 1.
-	u.LastPromoted = time.Now().UTC().Add(-time.Hour*24*2 - time.Second*10)
-	u.UpdateTrust()
-	if u.Trust != 1 {
-		t.Errorf("incorrect user trust level")
-	}
-
-	// Ten seconds before midnight means no promotion.
-	u.LastPromoted = time.Now().UTC().Add(-time.Hour*24*4 + time.Second*10)
-	u.UpdateTrust()
-	if u.Trust != 1 {
-		t.Errorf("incorrect user trust level")
-	}
-
-	// After 2^abs(1 + 1) days, the user should be promoted to trust level 2.
-	u.LastPromoted = time.Now().UTC().Add(-time.Hour*24*4 - time.Second*10)
-	u.UpdateTrust()
-	if u.Trust != 2 {
-		t.Errorf("incorrect user trust level")
-	}
-}
-
-func TestUpdateProxyTrust(t *testing.T) {
-	p := &Proxy{}
-	u1 := &User{}
-	u1.Trust = 1
-	u2 := &User{}
-	u2.Trust = 2
-	a := NewProxyAssignments()
-	a.Add(u1, p)
-	a.Add(u2, p)
-
-	// Proxy's trust level should be identical to minimum trust level of its
-	// users.
-	p.UpdateTrust(a)
-	if p.Trust != 1 {
-		t.Errorf("determined incorrect proxy trust level")
-	}
-
-	// When user gets promoted, the proxy's trust level should increase too.
-	u1.Trust++
-	p.UpdateTrust(a)
-	if p.Trust != 2 {
-		t.Errorf("determined incorrect proxy trust level")
-	}
-
-	u1.Trust++
-	p.UpdateTrust(a)
-	if p.Trust != 2 {
-		t.Errorf("determined incorrect proxy trust level")
-	}
-}
-
 func TestTokenCache(t *testing.T) {
 	salmon := NewSalmonDistributor()
 	u := &User{SecretId: "foo"}
@@ -189,7 +105,7 @@ func TestProcessDiff(t *testing.T) {
 	salmon.Assignments = a
 
 	// Create a user, a proxy, and assign the proxy to the user.
-	u, _ := salmon.NewUser(0, "")
+	u, _ := salmon.AddUser(0, nil)
 	p := &Proxy{Resource: resources.NewTransport()}
 	a.Add(u, p)
 
@@ -249,7 +165,7 @@ func TestUserFlow(t *testing.T) {
 	salmon.cfg.Distributors.Salmon.Resources = []string{resources.ResourceTypeObfs4}
 	salmon.UnassignedProxies = genResourceMap(100)
 
-	admin, err := salmon.NewUser(UntouchableTrustLevel, "")
+	admin, err := salmon.AddUser(UntouchableTrustLevel, nil)
 	if err != nil {
 		t.Fatalf("Failed to create new admin user: %s", err)
 	}
