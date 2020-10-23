@@ -6,6 +6,11 @@ import (
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 )
 
+const (
+	// The maximum number of clients per proxy.
+	MaxClients = 10
+)
+
 // Proxy represents a circumvention proxy that's handed out to users.
 type Proxy struct {
 	core.Resource

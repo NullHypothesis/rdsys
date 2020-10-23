@@ -22,7 +22,6 @@ const (
 	// The Salmon paper calls this threshold "T".  Simulation results suggest T
 	// = 1/3: <https://censorbib.nymity.ch/pdf/Douglas2016a.pdf#page=7>
 	MaxSuspicion         = 0.333
-	MaxClients           = 10
 	SalmonTickerInterval = time.Hour * 24
 	// Number of bytes.
 	InvitationTokenLength = 20
