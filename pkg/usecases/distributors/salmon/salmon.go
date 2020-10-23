@@ -2,7 +2,6 @@
 // The theory behind Salmon is presented in the following PETS'16 paper:
 // https://censorbib.nymity.ch/#Douglas2016a
 // Note that this file does *not* implement any user-facing code.
-// TODO: We may want to move this code to its separate package.
 package salmon
 
 import (
