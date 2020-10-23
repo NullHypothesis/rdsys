@@ -9,8 +9,7 @@ import (
 // Proxy represents a circumvention proxy that's handed out to users.
 type Proxy struct {
 	core.Resource
-	ReservedFor int
-	Trust       Trust
+	Trust Trust
 }
 
 // IsDepleted returns true if the proxy reached its capacity and can no longer
