@@ -122,6 +122,7 @@ func (s *SalmonDistributor) NewUser(trust Trust, inviterId string) (*User, error
 	u.InvitedBy = inviter
 	u.Trust = trust
 	u.LastPromoted = time.Now().UTC()
+	u.SecretId = secretId
 
 	s.Users[secretId] = u
 	log.Printf("Created new user with secret ID %q.", secretId)
