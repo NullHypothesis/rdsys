@@ -55,6 +55,8 @@ type SalmonDistributor struct {
 	Users             map[string]*User
 	AssignedProxies   core.ResourceMap
 	UnassignedProxies core.ResourceMap
+	// Assignments keep track of our proxy-to-user mappings.
+	Assignments *ProxyAssignments
 }
 
 // Trust represents the level of trust we have for a user or proxy.
@@ -66,6 +68,67 @@ type Trust int
 type TokenMetaInfo struct {
 	SecretInviterId string
 	IssueTime       time.Time
+}
+
+// ProxyAssignments keeps track of what proxies are assigned to what users.
+type ProxyAssignments struct {
+	UserToProxy map[*User]*internal.Set
+	ProxyToUser map[*Proxy]*internal.Set
+}
+
+// NewProxyAssignments creates and returns a new ProxyAssignments struct.
+func NewProxyAssignments() *ProxyAssignments {
+	a := &ProxyAssignments{}
+	a.UserToProxy = make(map[*User]*internal.Set)
+	a.ProxyToUser = make(map[*Proxy]*internal.Set)
+	return a
+}
+
+// GetUsers returns a slice of all users that were assigned the given proxy.
+func (a *ProxyAssignments) GetUsers(p *Proxy) []*User {
+
+	users := []*User{}
+	s, exists := a.ProxyToUser[p]
+	if !exists {
+		return users
+	}
+	for user, _ := range s.Set {
+		users = append(users, user.(*User))
+	}
+	return users
+}
+
+// GetProxies returns a slice of all resources that were assigned to the given
+// user.
+func (a *ProxyAssignments) GetProxies(u *User) []core.Resource {
+
+	proxies := []core.Resource{}
+	s, exists := a.UserToProxy[u]
+	if !exists {
+		return proxies
+	}
+	for proxy, _ := range s.Set {
+		proxies = append(proxies, proxy.(*Proxy))
+	}
+	return proxies
+}
+
+// AddAssignment adds a bi-directional assignment from user to/from proxy.
+func (a *ProxyAssignments) Add(u *User, p *Proxy) {
+
+	set, exists := a.UserToProxy[u]
+	if !exists {
+		set = internal.NewSet()
+	}
+	set.Add(p)
+	a.UserToProxy[u] = set
+
+	set, exists = a.ProxyToUser[p]
+	if !exists {
+		set = internal.NewSet()
+	}
+	set.Add(u)
+	a.ProxyToUser[p] = set
 }
 
 // User represents a user account.
@@ -81,7 +144,6 @@ type User struct {
 	Trust       Trust
 	InvitedBy   *User `json:"-"` // We have to omit this field to prevent cycles.
 	Invited     []*User
-	Proxies     []core.Resource
 	// The last time the user got promoted to a higher trust level.
 	LastPromoted time.Time
 }
@@ -90,7 +152,6 @@ type User struct {
 type Proxy struct {
 	core.Resource
 	ReservedFor int
-	Users       []*User
 	Trust       Trust
 }
 
@@ -101,6 +162,8 @@ func NewSalmonDistributor() *SalmonDistributor {
 	salmon.Users = make(map[string]*User)
 	salmon.AssignedProxies = make(core.ResourceMap)
 	salmon.UnassignedProxies = make(core.ResourceMap)
+	salmon.cfg = &internal.Config{}
+	salmon.Assignments = NewProxyAssignments()
 	return salmon
 }
 
@@ -163,7 +226,7 @@ func (s *SalmonDistributor) processDiff(diff *core.ResourceDiff) {
 			r2, err := q.Search(r1.Uid())
 			if err == nil {
 				if r1.BlockedIn().HasLocationsNotIn(r2.BlockedIn()) {
-					r2.(*Proxy).SetBlocked()
+					r2.(*Proxy).SetBlocked(s.Assignments)
 				}
 			}
 		}
@@ -230,18 +293,22 @@ func (s *SalmonDistributor) Shutdown() {
 
 // IsDepleted returns true if the proxy reached its capacity and can no longer
 // accommodate new users.
-func (p *Proxy) IsDepleted() bool {
-	return len(p.Users) >= MaxClients
+func (p *Proxy) IsDepleted(assignments *ProxyAssignments) bool {
+	return len(assignments.GetUsers(p)) >= MaxClients
 }
 
 // Don't call this function directly.  Call findProxies instead.
-func findAssignedProxies(inviter *User) []core.Resource {
+func (s *SalmonDistributor) findAssignedProxies(inviter *User) []core.Resource {
 
 	var proxies []core.Resource
 
 	// Do the given user's proxies have any free slots?
-	for _, proxy := range inviter.Proxies {
-		if proxy.IsDepleted() {
+	inviterProxies := s.Assignments.GetProxies(inviter)
+	if len(inviterProxies) == 0 {
+		log.Printf("Inviter %q has no assigned proxies.", inviter.SecretId)
+	}
+	for _, proxy := range inviterProxies {
+		if proxy.(*Proxy).IsDepleted(s.Assignments) {
 			continue
 		}
 		proxies = append(proxies, proxy)
@@ -253,7 +320,7 @@ func findAssignedProxies(inviter *User) []core.Resource {
 	// If we don't have enough proxies yet, we are going to recursively
 	// traverse invitation tree to find already-assigned, non-depleted proxies.
 	for _, invitee := range inviter.Invited {
-		ps := findAssignedProxies(invitee)
+		ps := s.findAssignedProxies(invitee)
 		proxies = append(proxies, ps...)
 		if len(proxies) >= NumProxiesPerUser {
 			return proxies[:NumProxiesPerUser]
@@ -272,7 +339,7 @@ func (s *SalmonDistributor) findProxies(invitee *User, rType string) []core.Reso
 	var proxies []core.Resource
 	// People who registered and admin friends don't have an inviter.
 	if invitee.InvitedBy != nil {
-		proxies := findAssignedProxies(invitee.InvitedBy)
+		proxies := s.findAssignedProxies(invitee.InvitedBy)
 		if len(proxies) == NumProxiesPerUser {
 			log.Printf("Returning %d proxies to user.", len(proxies))
 			return proxies
@@ -282,8 +349,8 @@ func (s *SalmonDistributor) findProxies(invitee *User, rType string) []core.Reso
 	// Take some of our unassigned proxies and allocate them for the given user
 	// graph, T(u).
 	numRemaining := NumProxiesPerUser - len(proxies)
-	if len(s.UnassignedProxies) < numRemaining {
-		numRemaining = len(s.UnassignedProxies)
+	if len(s.UnassignedProxies[rType]) < numRemaining {
+		numRemaining = len(s.UnassignedProxies[rType])
 	}
 	newProxies := s.UnassignedProxies[rType][:numRemaining]
 	s.UnassignedProxies[rType] = s.UnassignedProxies[rType][numRemaining:]
@@ -292,7 +359,7 @@ func (s *SalmonDistributor) findProxies(invitee *User, rType string) []core.Reso
 
 	for _, p := range newProxies {
 		s.AssignedProxies[rType] = append(s.AssignedProxies[rType], p)
-		invitee.Proxies = append(invitee.Proxies, p)
+		s.Assignments.Add(invitee, p.(*Proxy))
 		proxies = append(proxies, p)
 	}
 
@@ -327,8 +394,9 @@ func (s *SalmonDistributor) GetProxies(secretId string, rType string) ([]core.Re
 	}
 
 	// Does the user already have assigned proxies?
-	if len(user.Proxies) > 0 {
-		return user.Proxies, nil
+	userProxies := s.Assignments.GetProxies(user)
+	if len(userProxies) > 0 {
+		return userProxies, nil
 	}
 
 	return s.findProxies(user, rType), nil
@@ -360,7 +428,7 @@ func (s *SalmonDistributor) Housekeeping(rStream chan *core.ResourceDiff) {
 			log.Printf("Updating trust levels of %d proxies.", len(s.AssignedProxies))
 			for _, proxies := range s.AssignedProxies {
 				for _, proxy := range proxies {
-					proxy.(*Proxy).UpdateTrust()
+					proxy.(*Proxy).UpdateTrust(s.Assignments)
 				}
 			}
 			log.Printf("Pruning token cache.")
@@ -386,11 +454,12 @@ func (u *User) UpdateTrust() {
 }
 
 // UpdateTrust promotes the proxy's trust level depending on its users.
-func (p *Proxy) UpdateTrust() {
+func (p *Proxy) UpdateTrust(assignments *ProxyAssignments) {
 
 	// Determine the minimum trust level of the proxy's users.
 	newTrust := UntouchableTrustLevel
-	for _, user := range p.Users {
+	users := assignments.GetUsers(p)
+	for _, user := range users {
 		if user.Trust < newTrust {
 			newTrust = user.Trust
 		}
@@ -412,15 +481,17 @@ func (p *Proxy) UpdateTrust() {
 // SetBlocked marks the given proxy as blocked and adjusts the innocence scores
 // of (and potentially blocks) all assigned users.  This function doesn't care
 // *where* a proxy is blocked.
-func (p *Proxy) SetBlocked() {
+func (p *Proxy) SetBlocked(assignments *ProxyAssignments) {
 
-	numUsers := len(p.Users)
+	// numUsers := len(p.Users)
+	numUsers := len(assignments.GetUsers(p))
 	if numUsers == 0 {
 		log.Printf("Warning: proxy marked as blocked but has no users.")
 		return
 	}
 
-	for _, user := range p.Users {
+	users := assignments.GetUsers(p)
+	for _, user := range users {
 		// Add blocking event and determine user's innocence score.
 		user.InnocencePs = append(user.InnocencePs, (float64(numUsers)-1.0)/float64(numUsers))
 		score := 1.0

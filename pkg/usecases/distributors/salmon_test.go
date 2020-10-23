@@ -1,35 +1,16 @@
 package distributors
 
 import (
+	"fmt"
+	"math/rand"
+	"net"
+	"strings"
 	"testing"
 	"time"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
-
-func setup() *SalmonDistributor {
-	salmon := &SalmonDistributor{}
-	p1 := &Proxy{}
-	p2 := &Proxy{}
-	p3 := &Proxy{}
-	p4 := &Proxy{}
-
-	salmon.AssignedProxies = core.ResourceMap{"obfs4": []core.Resource{p1, p2, p3}}
-	salmon.UnassignedProxies = core.ResourceMap{"obfs4": []core.Resource{p4}}
-
-	u1 := &User{}
-	u2 := &User{}
-	u3 := &User{}
-	u2.InvitedBy = u1
-	u3.InvitedBy = u1
-
-	u1.Proxies = []core.Resource{p1}
-	u1.Invited = []*User{u2, u3}
-	u3.Proxies = []core.Resource{p2, p3}
-
-	return salmon
-}
 
 func TestUpdateUserTrust(t *testing.T) {
 	u := &User{}
@@ -90,24 +71,26 @@ func TestUpdateProxyTrust(t *testing.T) {
 	u1.Trust = 1
 	u2 := &User{}
 	u2.Trust = 2
-	p.Users = []*User{u1, u2}
+	a := NewProxyAssignments()
+	a.Add(u1, p)
+	a.Add(u2, p)
 
 	// Proxy's trust level should be identical to minimum trust level of its
 	// users.
-	p.UpdateTrust()
+	p.UpdateTrust(a)
 	if p.Trust != 1 {
 		t.Errorf("determined incorrect proxy trust level")
 	}
 
 	// When user gets promoted, the proxy's trust level should increase too.
 	u1.Trust++
-	p.UpdateTrust()
+	p.UpdateTrust(a)
 	if p.Trust != 2 {
 		t.Errorf("determined incorrect proxy trust level")
 	}
 
 	u1.Trust++
-	p.UpdateTrust()
+	p.UpdateTrust(a)
 	if p.Trust != 2 {
 		t.Errorf("determined incorrect proxy trust level")
 	}
@@ -202,11 +185,13 @@ func TestPruneTokenCache(t *testing.T) {
 
 func TestProcessDiff(t *testing.T) {
 	salmon := NewSalmonDistributor()
+	a := NewProxyAssignments()
+	salmon.Assignments = a
 
 	// Create a user, a proxy, and assign the proxy to the user.
 	u, _ := salmon.NewUser(0, "")
 	p := &Proxy{Resource: resources.NewTransport()}
-	p.Users = append(p.Users, u)
+	a.Add(u, p)
 
 	queue := core.ResourceQueue{p}
 	salmon.AssignedProxies[resources.ResourceTypeObfs4] = queue
@@ -225,5 +210,65 @@ func TestProcessDiff(t *testing.T) {
 	// User should now also be banned.
 	if !u.Banned {
 		t.Errorf("failed to ban user")
+	}
+}
+
+// genResourceMap generates a resource map consisting of the given number of
+// obfs4 bridges.
+func genResourceMap(num int) core.ResourceMap {
+
+	rm := make(core.ResourceMap)
+	q := core.ResourceQueue{}
+
+	for i := 0; i < num; i++ {
+		r := resources.NewTransport()
+		r.RType = resources.ResourceTypeObfs4
+
+		var octets []string
+		for octet := 0; octet < 4; octet++ {
+			octets = append(octets, fmt.Sprintf("%d", rand.Intn(256)))
+		}
+		addrStr := strings.Join(octets, ".")
+		ip := net.ParseIP(addrStr)
+		ipaddr := net.IPAddr{IP: ip}
+		r.Address = resources.IPAddr{IPAddr: ipaddr}
+		r.Port = uint16(rand.Intn(65536))
+		r.Parameters["iat-mode"] = "0"
+		// No need to have "real-looking" certificates here.
+		r.Parameters["cert"] = "foo"
+		q.Enqueue(&Proxy{Resource: r})
+	}
+	rm[resources.ResourceTypeObfs4] = q
+
+	return rm
+}
+
+func TestUserFlow(t *testing.T) {
+
+	salmon := NewSalmonDistributor()
+	salmon.cfg.Distributors.Salmon.Resources = []string{resources.ResourceTypeObfs4}
+	salmon.UnassignedProxies = genResourceMap(100)
+
+	admin, err := salmon.NewUser(UntouchableTrustLevel, "")
+	if err != nil {
+		t.Fatalf("Failed to create new admin user: %s", err)
+	}
+
+	token, err := salmon.CreateInvite(admin.SecretId)
+	if err != nil {
+		t.Fatalf("Failed to create Salmon invite: %s", err)
+	}
+	userId, err := salmon.RedeemInvite(token)
+	if err != nil {
+		t.Fatalf("Failed to redeem Salmon invite: %s", err)
+	}
+
+	proxies, err := salmon.GetProxies(userId, "obfs4")
+	if err != nil {
+		t.Fatalf("Failed to get proxies: %s", err)
+	}
+
+	if len(proxies) == 0 {
+		t.Fatalf("Got no proxies.")
 	}
 }
