@@ -26,7 +26,6 @@ const (
 	SalmonTickerInterval = time.Hour * 24
 	// Number of bytes.
 	InvitationTokenLength = 20
-	UserSecretIdLength    = 20
 	InvitationTokenExpiry = time.Hour * 24 * 7
 	NumProxiesPerUser     = 3 // TODO: This should be configurable.
 	TokenCacheFile        = "token-cache.bin"
@@ -73,28 +72,19 @@ func NewSalmonDistributor() *SalmonDistributor {
 	return salmon
 }
 
-func (s *SalmonDistributor) NewUser(trust Trust, inviterId string) (*User, error) {
-	secretId, err := internal.GetRandBase32(UserSecretIdLength)
+// AddUser adds a new user to Salmon and sets its trust and inviter to the
+// provided variables.
+func (s *SalmonDistributor) AddUser(trust Trust, inviter *User) (*User, error) {
+
+	u, err := NewUser()
 	if err != nil {
 		return nil, err
 	}
-
-	u := &User{}
-	inviter, exists := s.Users[inviterId]
-	if !exists {
-		log.Println("Creating new server admin account.")
-		inviter = nil
-	} else {
-		inviter.Invited = append(inviter.Invited, u)
-	}
-
 	u.InvitedBy = inviter
 	u.Trust = trust
-	u.LastPromoted = time.Now().UTC()
-	u.SecretId = secretId
 
-	s.Users[secretId] = u
-	log.Printf("Created new user with secret ID %q.", secretId)
+	s.Users[u.SecretId] = u
+	log.Printf("Created new user with secret ID %q.", u.SecretId)
 
 	return u, nil
 }
@@ -155,7 +145,7 @@ func (s *SalmonDistributor) processDiff(diff *core.ResourceDiff) {
 func (s *SalmonDistributor) Init(cfg *internal.Config) {
 	log.Printf("Initialising %s distributor.", SalmonDistName)
 
-	s.NewUser(UntouchableTrustLevel, "")
+	s.AddUser(UntouchableTrustLevel, nil)
 	s.cfg = cfg
 	s.shutdown = make(chan bool)
 
@@ -424,7 +414,7 @@ func (s *SalmonDistributor) RedeemInvite(token string) (string, error) {
 		return "", errors.New("invite token came from non-existing user (this is a bug)")
 	}
 
-	u, err := s.NewUser(inviter.Trust-1, inviter.SecretId)
+	u, err := s.AddUser(inviter.Trust-1, inviter)
 	if err != nil {
 		return "", err
 	}
