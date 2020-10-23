@@ -160,7 +160,7 @@ func (s *SalmonDistributor) Init(cfg *internal.Config) {
 	s.ipc.StartStream(&req)
 
 	s.wg.Add(1)
-	go s.Housekeeping(rStream)
+	go s.housekeeping(rStream)
 
 	s.TokenCacheMutex.Lock()
 	defer s.TokenCacheMutex.Unlock()
@@ -291,8 +291,8 @@ func (s *SalmonDistributor) GetProxies(secretId string, rType string) ([]core.Re
 	return s.findProxies(user, rType), nil
 }
 
-// Housekeeping keeps track of periodic tasks.
-func (s *SalmonDistributor) Housekeeping(rStream chan *core.ResourceDiff) {
+// housekeeping keeps track of periodic tasks.
+func (s *SalmonDistributor) housekeeping(rStream chan *core.ResourceDiff) {
 
 	defer s.wg.Done()
 	defer close(rStream)
