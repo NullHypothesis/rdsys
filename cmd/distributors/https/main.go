@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/internal"
-	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/distributors"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/distributors/https"
 )
 
 func main() {
@@ -23,6 +23,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var h distributors.HttpsDistributor
-	h.Init(cfg)
+	var dist https.HttpsDistributor
+	dist.Init(cfg)
 }

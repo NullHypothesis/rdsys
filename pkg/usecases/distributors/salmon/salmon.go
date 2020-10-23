@@ -3,7 +3,7 @@
 // https://censorbib.nymity.ch/#Douglas2016a
 // Note that this file does *not* implement any user-facing code.
 // TODO: We may want to move this code to its separate package.
-package distributors
+package salmon
 
 import (
 	"errors"

@@ -1,4 +1,4 @@
-package distributors
+package salmon
 
 import (
 	"fmt"
