@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/internal"
-	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/distributors"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/distributors/salmon"
 )
 
-var salmon *distributors.SalmonDistributor
+var dist *salmon.SalmonDistributor
 
 // ProxiesHandler handles requests for /proxies.
 func ProxiesHandler(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +34,7 @@ func ProxiesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no field 'type' given", http.StatusBadRequest)
 		return
 	}
-	proxies, err := salmon.GetProxies(secretId[0], rType[0])
+	proxies, err := dist.GetProxies(secretId[0], rType[0])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -55,7 +55,7 @@ func ProxiesHandler(w http.ResponseWriter, r *http.Request) {
 
 // AccountHandler handles requests for /account.
 func AccountHandler(w http.ResponseWriter, r *http.Request) {
-	secretId, err := salmon.Register()
+	secretId, err := dist.Register()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -76,7 +76,7 @@ func InviteHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "need excactly one 'secret-id' field", http.StatusBadRequest)
 		return
 	}
-	token, err := salmon.CreateInvite(secretId[0])
+	token, err := dist.CreateInvite(secretId[0])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -98,7 +98,7 @@ func RedeemHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secretId, err := salmon.RedeemInvite(token[0])
+	secretId, err := dist.RedeemInvite(token[0])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -111,8 +111,8 @@ func RedeemHandler(w http.ResponseWriter, r *http.Request) {
 func Init(cfg *internal.Config) {
 
 	var srv http.Server
-	salmon = distributors.NewSalmonDistributor()
-	salmon.Init(cfg)
+	dist = salmon.NewSalmonDistributor()
+	dist.Init(cfg)
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT)
@@ -120,7 +120,7 @@ func Init(cfg *internal.Config) {
 	go func() {
 		<-signalChan
 		log.Printf("Caught SIGINT.")
-		salmon.Shutdown()
+		dist.Shutdown()
 
 		log.Printf("Shutting down Web API.")
 		// Give our Web server five seconds to shut down.
