@@ -7,7 +7,6 @@ package salmon
 import (
 	"errors"
 	"log"
-	"math"
 	"sync"
 	"time"
 
@@ -22,16 +21,9 @@ const (
 	SalmonDistName = "salmon"
 	// The Salmon paper calls this threshold "T".  Simulation results suggest T
 	// = 1/3: <https://censorbib.nymity.ch/pdf/Douglas2016a.pdf#page=7>
-	MaxSuspicion = 0.333
-	// MaxTrustLevel represents the maximum trust level that a user can get
-	// promoted to.  The paper refers to the maximum trust level as "L" and
-	// argues that six is a good compromise:
-	// <https://censorbib.nymity.ch/pdf/Douglas2016a.pdf#page=4>
-	MaxTrustLevel = Trust(6)
-	// A user can get UntouchableTrustLevel by being invited directly by us.
-	UntouchableTrustLevel = Trust(MaxTrustLevel + 1)
-	MaxClients            = 10
-	SalmonTickerInterval  = time.Hour * 24
+	MaxSuspicion         = 0.333
+	MaxClients           = 10
+	SalmonTickerInterval = time.Hour * 24
 	// Number of bytes.
 	InvitationTokenLength = 20
 	UserSecretIdLength    = 20
@@ -67,91 +59,6 @@ type Trust int
 type TokenMetaInfo struct {
 	SecretInviterId string
 	IssueTime       time.Time
-}
-
-// ProxyAssignments keeps track of what proxies are assigned to what users.
-type ProxyAssignments struct {
-	UserToProxy map[*User]*internal.Set
-	ProxyToUser map[*Proxy]*internal.Set
-}
-
-// NewProxyAssignments creates and returns a new ProxyAssignments struct.
-func NewProxyAssignments() *ProxyAssignments {
-	a := &ProxyAssignments{}
-	a.UserToProxy = make(map[*User]*internal.Set)
-	a.ProxyToUser = make(map[*Proxy]*internal.Set)
-	return a
-}
-
-// GetUsers returns a slice of all users that were assigned the given proxy.
-func (a *ProxyAssignments) GetUsers(p *Proxy) []*User {
-
-	users := []*User{}
-	s, exists := a.ProxyToUser[p]
-	if !exists {
-		return users
-	}
-	for user, _ := range s.Set {
-		users = append(users, user.(*User))
-	}
-	return users
-}
-
-// GetProxies returns a slice of all resources that were assigned to the given
-// user.
-func (a *ProxyAssignments) GetProxies(u *User) []core.Resource {
-
-	proxies := []core.Resource{}
-	s, exists := a.UserToProxy[u]
-	if !exists {
-		return proxies
-	}
-	for proxy, _ := range s.Set {
-		proxies = append(proxies, proxy.(*Proxy))
-	}
-	return proxies
-}
-
-// AddAssignment adds a bi-directional assignment from user to/from proxy.
-func (a *ProxyAssignments) Add(u *User, p *Proxy) {
-
-	set, exists := a.UserToProxy[u]
-	if !exists {
-		set = internal.NewSet()
-	}
-	set.Add(p)
-	a.UserToProxy[u] = set
-
-	set, exists = a.ProxyToUser[p]
-	if !exists {
-		set = internal.NewSet()
-	}
-	set.Add(u)
-	a.ProxyToUser[p] = set
-}
-
-// User represents a user account.
-type User struct {
-	SecretId string
-	Banned   bool
-	// The probability of the client *not* being an agent is the product of the
-	// probabilities of innocence of each proxy blocking event that the client
-	// was involved in.  The complement of this probability is the client's
-	// suspicion.  We permanently ban client whose suspicion meets or exceeds
-	// our suspicion threshold.
-	InnocencePs []float64
-	Trust       Trust
-	InvitedBy   *User `json:"-"` // We have to omit this field to prevent cycles.
-	Invited     []*User
-	// The last time the user got promoted to a higher trust level.
-	LastPromoted time.Time
-}
-
-// Proxy represents a circumvention proxy that's handed out to users.
-type Proxy struct {
-	core.Resource
-	ReservedFor int
-	Trust       Trust
 }
 
 // NewSalmonDistributor allocates and returns a new distributor object.
@@ -290,12 +197,6 @@ func (s *SalmonDistributor) Shutdown() {
 	s.wg.Wait()
 }
 
-// IsDepleted returns true if the proxy reached its capacity and can no longer
-// accommodate new users.
-func (p *Proxy) IsDepleted(assignments *ProxyAssignments) bool {
-	return len(assignments.GetUsers(p)) >= MaxClients
-}
-
 // Don't call this function directly.  Call findProxies instead.
 func (s *SalmonDistributor) findAssignedProxies(inviter *User) []core.Resource {
 
@@ -432,76 +333,6 @@ func (s *SalmonDistributor) Housekeeping(rStream chan *core.ResourceDiff) {
 			}
 			log.Printf("Pruning token cache.")
 			s.pruneTokenCache()
-		}
-	}
-}
-
-// UpdateTrust promotes the user's trust level if the time has come.
-func (u *User) UpdateTrust() {
-
-	// Users can not be promoted beyond MaxTrustLevel.
-	if u.Trust >= MaxTrustLevel {
-		return
-	}
-
-	// A promotion from level n to n+1 takes 2^{n+1} days.
-	daysPassed := int64(time.Now().UTC().Sub(u.LastPromoted).Hours() / 24)
-	daysRequired := int64(math.Exp2(math.Abs(float64(u.Trust + 1))))
-	if daysPassed >= daysRequired {
-		u.Trust++
-	}
-}
-
-// UpdateTrust promotes the proxy's trust level depending on its users.
-func (p *Proxy) UpdateTrust(assignments *ProxyAssignments) {
-
-	// Determine the minimum trust level of the proxy's users.
-	newTrust := UntouchableTrustLevel
-	users := assignments.GetUsers(p)
-	for _, user := range users {
-		if user.Trust < newTrust {
-			newTrust = user.Trust
-		}
-	}
-
-	if newTrust > p.Trust {
-		log.Printf("Increasing proxy's trust level from %d to %d.", p.Trust, newTrust)
-		p.Trust = newTrust
-	}
-
-	// A proxy's trust level should be monotonically increasing because its
-	// users would only lose a trust level if the proxy was blocked.
-	if newTrust < p.Trust {
-		// TODO: How do we handle server blocking?
-		log.Printf("Bug: proxy was assigned to user with too low a trust level")
-	}
-}
-
-// SetBlocked marks the given proxy as blocked and adjusts the innocence scores
-// of (and potentially blocks) all assigned users.  This function doesn't care
-// *where* a proxy is blocked.
-func (p *Proxy) SetBlocked(assignments *ProxyAssignments) {
-
-	// numUsers := len(p.Users)
-	numUsers := len(assignments.GetUsers(p))
-	if numUsers == 0 {
-		log.Printf("Warning: proxy marked as blocked but has no users.")
-		return
-	}
-
-	users := assignments.GetUsers(p)
-	for _, user := range users {
-		// Add blocking event and determine user's innocence score.
-		user.InnocencePs = append(user.InnocencePs, (float64(numUsers)-1.0)/float64(numUsers))
-		score := 1.0
-		for _, p := range user.InnocencePs {
-			score *= p
-		}
-
-		// A user's suspicion is the complement of her innocence.
-		if 1-score >= MaxSuspicion {
-			log.Printf("Banning user %q with suspicion %.2f", user.SecretId, 1-score)
-			user.Banned = true
 		}
 	}
 }
