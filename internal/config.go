@@ -38,6 +38,8 @@ type Distributors struct {
 type HttpsDistConfig struct {
 	ApiAddress string   `json:"api_address"`
 	Resources  []string `json:"resources"`
+	CertFile   string   `json:"cert_file"`
+	KeyFile    string   `json:"key_file"`
 }
 
 type SalmonDistConfig struct {
