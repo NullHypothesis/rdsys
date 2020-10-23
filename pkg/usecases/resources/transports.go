@@ -51,10 +51,6 @@ func (t *Transport) IsValid() bool {
 	return t.Type() != "" && t.Address.String() != "" && t.Port != 0
 }
 
-func (t *Transport) IsDepleted() bool {
-	return false
-}
-
 func (t *Transport) IsPublic() bool {
 	return false
 }

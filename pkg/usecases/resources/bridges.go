@@ -110,10 +110,6 @@ func (b *Bridge) Uid() core.Hashkey {
 	return core.Hashkey(crc64.Checksum([]byte(ResourceTypeVanilla+b.Fingerprint), table))
 }
 
-func (b *Bridge) IsDepleted() bool {
-	return false
-}
-
 func (b *Bridge) String() string {
 	return b.GetBridgeLine()
 }

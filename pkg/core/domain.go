@@ -23,7 +23,6 @@ type Resource interface {
 	Type() string
 	SetType(string)
 	String() string
-	IsDepleted() bool
 	IsPublic() bool
 	IsValid() bool
 	BlockedIn() LocationSet

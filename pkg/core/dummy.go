@@ -28,9 +28,6 @@ func (d *Dummy) Type() string {
 }
 func (d *Dummy) SetType(rType string) {
 }
-func (d *Dummy) IsDepleted() bool {
-	return false
-}
 func (d *Dummy) IsPublic() bool {
 	return false
 }
