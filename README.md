@@ -1,39 +1,37 @@
-rdsys
+Rdsys
 =====
 
-Rdsys is a distribution system for circumvention proxies and related resources.
+**Disclaimer: This project is under construction.  Nothing is stable.**
 
-This project is a partial reimplementation of [BridgeDB](https://gitlab.torproject.org/tpo/anti-censorship/bridgedb).
+Rdsys is short for *r*esource *d*istribution *sys*tem: Resources related to
+censorship circumvention (e.g. proxies or download links) are handed out by a
+variety of distribution methods to censored users.  The goal is to supply
+censored users with circumvention proxies, allowing these users to join us on
+the open Internet.
 
-It is meant to be more flexible and robust in production environments and even potentially language-agnostic, as the distributors operate independently of the backend.
+Rdsys supersedes
+[BridgeDB](https://gitlab.torproject.org/tpo/anti-censorship/bridgedb).
+Functionality-wise, rdsys and BridgeDB overlap but rdsys is neither a subset
+nor a superset of BridgeDB's functionality.
 
-Currently, rdsys is in experimental, conceptual stages and it is not being used in any production environments.
+Installation
+============
 
-## Installation
+1. Compile the backend executable:
 
-### Backend
+        go build -o rdsys-backend cmd/backend/main.go
 
-#### Building
+1. Compile the distributors executable:
 
-In order to build the backend, run:
+        go build -o rdsys-distributor cmd/distributors/main.go
 
-	`go build -o ./rdsys-backend ./cmd/backend/main.go`
+Usage
+=====
 
-#### Installing
+1. Start the backend by running:
 
-To install the binary, copy `./rdsys-backend` to a location in your PATH. (Eg: `/usr/local/bin`)
+        ./rdsys-backend -config /path/to/config.json
 
-### Distributors
+2. Start a distributor, which distributes the backend's resources:
 
-You can build and use multiple different distributors with rdsys. The following instructions involve building the HTTPS distributor.
-
-#### Building
-
-In order to build the HTTPS distributor, run:
-
-	`go build -o ./rdsys-https ./cmd/distributors/https/main.go`
-
-#### Installing
-
-To install, copy `./rdsys-https` to a location in your PATH. (Eg: `/usr/local/bin`)
-
+        ./rdsys-distributor -name salmon -config /path/to/config.json
