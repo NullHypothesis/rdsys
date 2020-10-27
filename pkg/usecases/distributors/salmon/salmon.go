@@ -71,9 +71,9 @@ func NewSalmonDistributor() *SalmonDistributor {
 	return salmon
 }
 
-// AddUser adds a new user to Salmon and sets its trust and inviter to the
+// addUser adds a new user to Salmon and sets its trust and inviter to the
 // provided variables.
-func (s *SalmonDistributor) AddUser(trust Trust, inviter *User) (*User, error) {
+func (s *SalmonDistributor) addUser(trust Trust, inviter *User) (*User, error) {
 
 	u, err := NewUser()
 	if err != nil {
@@ -144,7 +144,7 @@ func (s *SalmonDistributor) processDiff(diff *core.ResourceDiff) {
 func (s *SalmonDistributor) Init(cfg *internal.Config) {
 	log.Printf("Initialising %s distributor.", SalmonDistName)
 
-	s.AddUser(UntouchableTrustLevel, nil)
+	s.addUser(UntouchableTrustLevel, nil)
 	s.cfg = cfg
 	s.shutdown = make(chan bool)
 
@@ -413,7 +413,7 @@ func (s *SalmonDistributor) RedeemInvite(token string) (string, error) {
 		return "", errors.New("invite token came from non-existing user (this is a bug)")
 	}
 
-	u, err := s.AddUser(inviter.Trust-1, inviter)
+	u, err := s.addUser(inviter.Trust-1, inviter)
 	if err != nil {
 		return "", err
 	}

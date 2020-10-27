@@ -105,7 +105,7 @@ func TestProcessDiff(t *testing.T) {
 	salmon.Assignments = a
 
 	// Create a user, a proxy, and assign the proxy to the user.
-	u, _ := salmon.AddUser(0, nil)
+	u, _ := salmon.addUser(0, nil)
 	p := &Proxy{Resource: resources.NewTransport()}
 	a.Add(u, p)
 
@@ -165,7 +165,7 @@ func TestUserFlow(t *testing.T) {
 	salmon.cfg.Distributors.Salmon.Resources = []string{resources.ResourceTypeObfs4}
 	salmon.UnassignedProxies = genResourceMap(100)
 
-	admin, err := salmon.AddUser(UntouchableTrustLevel, nil)
+	admin, err := salmon.addUser(UntouchableTrustLevel, nil)
 	if err != nil {
 		t.Fatalf("Failed to create new admin user: %s", err)
 	}
