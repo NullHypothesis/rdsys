@@ -2,7 +2,6 @@
     "backend": {
         "extrainfo_file": "cached-extrainfo",
         "bridgestrap_endpoint": "http://127.0.0.1:5000/bridge-state",
-        "api_address": "127.0.0.1:7100",
         "api_endpoint_resources": "/resources",
         "api_endpoint_resource_stream": "/resource-stream",
         "api_endpoint_targets": "/targets",
@@ -10,8 +9,11 @@
                 "https": "HttpsApiTokenPlaceholder",
                 "salmon": "SalmonApiTokenPlaceholder"
         },
-        "certfile": "",
-        "keyfile": "",
+        "web_api": {
+            "api_address": "127.0.0.1:7100",
+            "cert_file": "",
+            "key_file": ""
+        },
         "distribution_proportions": {
             "https": 1,
             "salmon": 5
@@ -19,13 +21,21 @@
     },
     "distributors": {
         "https": {
-            "api_address": "127.0.0.1:7200",
-            "resources": ["obfs3", "obfs4", "scramblesuit"]
+            "resources": ["obfs3", "obfs4", "scramblesuit"],
+            "web_api": {
+                "api_address": "127.0.0.1:7200",
+                "cert_file": "",
+                "key_file": ""
+            }
         },
         "salmon": {
-            "api_address": "127.0.0.1:7300",
             "working_directory": "/tmp/salmon/",
-            "resources": ["obfs4"]
+            "resources": ["obfs4"],
+            "web_api": {
+                "api_address": "127.0.0.1:7300",
+                "cert_file": "",
+                "key_file": ""
+            }
         }
     }
 }

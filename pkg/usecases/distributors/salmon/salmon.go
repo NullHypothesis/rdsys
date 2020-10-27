@@ -149,7 +149,7 @@ func (s *SalmonDistributor) Init(cfg *internal.Config) {
 	s.shutdown = make(chan bool)
 
 	log.Printf("Initialising resource stream.")
-	s.ipc = mechanisms.NewHttpsIpc("http://" + cfg.Backend.ApiAddress + cfg.Backend.ResourceStreamEndpoint)
+	s.ipc = mechanisms.NewHttpsIpc("http://" + cfg.Backend.WebApi.ApiAddress + cfg.Backend.ResourceStreamEndpoint)
 	rStream := make(chan *core.ResourceDiff)
 	req := core.ResourceRequest{
 		RequestOrigin: SalmonDistName,

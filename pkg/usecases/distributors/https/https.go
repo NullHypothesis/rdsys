@@ -65,7 +65,7 @@ func (d *HttpsDistributor) Init(cfg *internal.Config) {
 	d.ring = core.NewHashring()
 
 	log.Printf("Initialising resource stream.")
-	d.ipc = mechanisms.NewHttpsIpc("http://" + cfg.Backend.ApiAddress + cfg.Backend.ResourceStreamEndpoint)
+	d.ipc = mechanisms.NewHttpsIpc("http://" + cfg.Backend.WebApi.ApiAddress + cfg.Backend.ResourceStreamEndpoint)
 	rStream := make(chan *core.ResourceDiff)
 	req := core.ResourceRequest{
 		RequestOrigin: HttpsDistName,

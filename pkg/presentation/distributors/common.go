@@ -13,8 +13,8 @@ import (
 func Run(distName string, cfg *internal.Config) {
 
 	var constructors = map[string]func(*internal.Config){
-		"salmon": salmon.Init,
-		"https":  https.Init,
+		"salmon": salmon.InitFrontend,
+		"https":  https.InitFrontend,
 	}
 
 	runFunc, exists := constructors[distName]

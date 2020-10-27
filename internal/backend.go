@@ -29,18 +29,18 @@ type BackendContext struct {
 
 // startWebApi starts our Web server.
 func (b *BackendContext) startWebApi(cfg *Config, srv *http.Server) {
-	log.Printf("Starting Web API at %s.", cfg.Backend.ApiAddress)
+	log.Printf("Starting Web API at %s.", cfg.Backend.WebApi.ApiAddress)
 
 	mux := http.NewServeMux()
 	mux.Handle(cfg.Backend.ResourceStreamEndpoint, http.HandlerFunc(b.resourcesHandler))
 	mux.Handle(cfg.Backend.ResourcesEndpoint, http.HandlerFunc(b.resourcesHandler))
 	mux.Handle(cfg.Backend.TargetsEndpoint, http.HandlerFunc(b.targetsHandler))
 	srv.Handler = mux
-	srv.Addr = cfg.Backend.ApiAddress
+	srv.Addr = cfg.Backend.WebApi.ApiAddress
 
 	var err error
-	if cfg.Backend.Certfile != "" && cfg.Backend.Keyfile != "" {
-		err = srv.ListenAndServeTLS(cfg.Backend.Certfile, cfg.Backend.Keyfile)
+	if cfg.Backend.WebApi.CertFile != "" && cfg.Backend.WebApi.KeyFile != "" {
+		err = srv.ListenAndServeTLS(cfg.Backend.WebApi.CertFile, cfg.Backend.WebApi.KeyFile)
 	} else {
 		err = srv.ListenAndServe()
 	}

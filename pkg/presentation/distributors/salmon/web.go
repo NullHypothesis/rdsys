@@ -1,16 +1,11 @@
 package salmon
 
 import (
-	"context"
 	"fmt"
-	"log"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/internal"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/presentation/distributors/common"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/distributors/salmon"
 )
 
@@ -106,51 +101,22 @@ func RedeemHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "new user secret-id: %s", secretId)
 }
 
-// Init is the entry point to Salmon's Web frontend.  It spins up the Web
-// server and then waits until it receives a SIGINT.
-func Init(cfg *internal.Config) {
+// InitFrontend is the entry point to Salmon's Web frontend.  It spins up the
+// Web server and then waits until it receives a SIGINT.
+func InitFrontend(cfg *internal.Config) {
 
-	var srv http.Server
 	dist = salmon.NewSalmonDistributor()
-	dist.Init(cfg)
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT)
-	signal.Notify(signalChan, syscall.SIGTERM)
-	go func() {
-		<-signalChan
-		log.Printf("Caught SIGINT.")
-		dist.Shutdown()
-
-		log.Printf("Shutting down Web API.")
-		// Give our Web server five seconds to shut down.
-		t := time.Now().Add(5 * time.Second)
-		ctx, cancel := context.WithDeadline(context.Background(), t)
-		defer cancel()
-		err := srv.Shutdown(ctx)
-		if err != nil {
-			log.Printf("Error shutting down Web API: %s", err)
-		}
-	}()
-
-	mux := http.NewServeMux()
-	mux.Handle("/proxies", http.HandlerFunc(ProxiesHandler))
-	mux.Handle("/account", http.HandlerFunc(AccountHandler))
-	mux.Handle("/invite", http.HandlerFunc(InviteHandler))
-	mux.Handle("/redeem", http.HandlerFunc(RedeemHandler))
-	srv.Handler = mux
-
-	srv.Addr = cfg.Distributors.Salmon.ApiAddress
-	log.Printf("Starting Web server at %s.", srv.Addr)
-
-	var err error
-	if cfg.Distributors.Salmon.KeyFile != "" && cfg.Distributors.Salmon.CertFile != "" {
-		err = srv.ListenAndServeTLS(cfg.Distributors.Salmon.CertFile,
-			cfg.Distributors.Salmon.KeyFile)
-	} else {
-		err = srv.ListenAndServe()
+	handlers := map[string]http.HandlerFunc{
+		"/proxies": http.HandlerFunc(ProxiesHandler),
+		"/account": http.HandlerFunc(AccountHandler),
+		"/invite":  http.HandlerFunc(InviteHandler),
+		"/redeem":  http.HandlerFunc(RedeemHandler),
 	}
-	if err != nil {
-		log.Printf("Web API shut down: %s", err)
-	}
+
+	common.StartWebServer(
+		&cfg.Distributors.Salmon.WebApi,
+		cfg,
+		dist,
+		handlers,
+	)
 }
