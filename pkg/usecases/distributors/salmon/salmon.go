@@ -106,8 +106,7 @@ func convertToProxies(diff *core.ResourceDiff) {
 
 // processDiff takes as input a resource diff and feeds it into Salmon's
 // existing set of resources.
-// * New proxies are added to UnassignedProxies.
-// *
+// TODO: How should we handle new proxies that are blocked already?
 func (s *SalmonDistributor) processDiff(diff *core.ResourceDiff) {
 
 	convertToProxies(diff)
@@ -126,6 +125,12 @@ func (s *SalmonDistributor) processDiff(diff *core.ResourceDiff) {
 			}
 		}
 	}
+	// Remove proxies that are now gone.
+	for _, rQueue := range diff.Gone {
+		for _, r := range rQueue {
+			s.Assignments.RemoveProxy(r.(*Proxy))
+		}
+	}
 
 	s.UnassignedProxies.ApplyDiff(diff)
 	// New proxies only belong in UnassignedProxies.
@@ -133,11 +138,6 @@ func (s *SalmonDistributor) processDiff(diff *core.ResourceDiff) {
 	s.AssignedProxies.ApplyDiff(diff)
 	log.Printf("Unassigned proxies: %s; assigned proxies: %s",
 		s.UnassignedProxies, s.AssignedProxies)
-
-	// Potential problems:
-	// 0. How should we handle new proxies that are blocked already?
-	// 1. Gone proxies: Users are assigned to proxies that no longer exist.
-	//    Maybe add a destructor to proxies?
 }
 
 // Init initialises the given Salmon distributor.
