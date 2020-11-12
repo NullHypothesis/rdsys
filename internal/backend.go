@@ -271,10 +271,14 @@ func (b *BackendContext) statusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	statuses := []string{"resource has not been tested yet",
-		"resource is functional",
-		"resource is dysfunctional"}
-	fmt.Fprintf(w, "resource state: %s", statuses[resource.GetState()])
+	statuses := []string{"not yet tested", "functional", "dysfunctional"}
+	fmt.Fprintf(w, "Bridge state: %s\n", statuses[resource.Test().State])
+	if resource.Test().Error != "" {
+		fmt.Fprintf(w, "Error: %s\n", resource.Test().Error)
+	}
+	if resource.Test().State != core.StateUntested {
+		fmt.Fprintf(w, "Last tested: %s\n", resource.Test().LastTested)
+	}
 }
 
 func (b *BackendContext) processResourceRequest(req *core.ResourceRequest) core.ResourceMap {

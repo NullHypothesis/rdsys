@@ -60,8 +60,8 @@ func TestAddFunc(t *testing.T) {
 
 	// Were all states set correctly?
 	for i := 0; i < len(dummies); i++ {
-		if dummies[i].State() != core.StateFunctional {
-			t.Fatal("resource state was set incorrectly", dummies[i].State())
+		if dummies[i].Test().State != core.StateFunctional {
+			t.Fatal("resource state was set incorrectly", dummies[i].Test().State)
 		}
 	}
 

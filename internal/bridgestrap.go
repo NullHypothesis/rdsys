@@ -31,8 +31,9 @@ type BridgestrapRequest struct {
 // BridgeTest represents the status of a single bridge in bridgestrap's
 // response.
 type BridgeTest struct {
-	Functional bool   `json:"functional"`
-	Error      string `json:"error,omitempty"`
+	Functional bool      `json:"functional"`
+	LastTested time.Time `json:"last_tested"`
+	Error      string    `json:"error,omitempty"`
 }
 
 // BridgestrapResponse represents bridgestrap's response.
@@ -144,12 +145,14 @@ func (p *ResourceTestPool) testResources() {
 			continue
 		}
 
+		r.Test().LastTested = bridgeTest.LastTested
+		r.Test().Error = bridgeTest.Error
 		if bridgeTest.Functional {
 			numFunctional++
-			r.SetState(core.StateFunctional)
+			r.Test().State = core.StateFunctional
 		} else {
 			numDysfunctional++
-			r.SetState(core.StateNotFunctional)
+			r.Test().State = core.StateNotFunctional
 		}
 	}
 	log.Printf("Tested %d resources: %d functional and %d dysfunctional.",

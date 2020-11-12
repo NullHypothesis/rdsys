@@ -10,11 +10,11 @@ type Dummy struct {
 	ObjectId   Hashkey
 	UniqueId   Hashkey
 	ExpiryTime time.Duration
-	state      int
+	test       *ResourceTest
 }
 
 func NewDummy(oid Hashkey, uid Hashkey) *Dummy {
-	return &Dummy{ObjectId: oid, UniqueId: uid, state: StateFunctional}
+	return &Dummy{ObjectId: oid, UniqueId: uid, test: &ResourceTest{State: StateFunctional}}
 }
 func (d *Dummy) Oid() Hashkey {
 	return d.ObjectId
@@ -33,11 +33,11 @@ func (d *Dummy) SetType(rType string) {
 func (d *Dummy) IsPublic() bool {
 	return false
 }
-func (d *Dummy) State() int {
-	return d.state
+func (d *Dummy) Test() *ResourceTest {
+	return d.test
 }
-func (d *Dummy) SetState(state int) {
-	d.state = state
+func (d *Dummy) SetTest(t *ResourceTest) {
+	d.test = t
 }
 func (d *Dummy) Expiry() time.Duration {
 	return d.ExpiryTime
