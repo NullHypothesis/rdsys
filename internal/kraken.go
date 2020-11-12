@@ -24,26 +24,6 @@ const (
 	ExtraInfoPrefix      = "extra-info"
 )
 
-// BridgestrapRequest represents a request for bridgestrap.  Here's what its
-// API look like: https://gitlab.torproject.org/phw/bridgestrap#input
-type BridgestrapRequest struct {
-	BridgeLines []string `json:"bridge_lines"`
-}
-
-// BridgeTest represents the status of a single bridge in bridgestrap's
-// response.
-type BridgeTest struct {
-	Functional bool   `json:"functional"`
-	Error      string `json:"error,omitempty"`
-}
-
-// BridgestrapResponse represents bridgestrap's response.
-type BridgestrapResponse struct {
-	Bridges map[string]*BridgeTest `json:"bridge_results"`
-	Time    float64                `json:"time"`
-	Error   string                 `json:"error,omitempty"`
-}
-
 func InitKraken(cfg *Config, shutdown chan bool, ready chan bool, rcol core.BackendResources) {
 	log.Println("Initialising resource kraken.")
 	ticker := time.NewTicker(KrakenTickerInterval)
