@@ -15,16 +15,14 @@ import (
 	"time"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
-	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery"
-	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery/mechanisms"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
 
 // BackendContext contains the state that our backend requires.
 type BackendContext struct {
-	Config      *Config
-	Resources   core.BackendResources
-	bridgestrap delivery.Mechanism
+	Config    *Config
+	Resources core.BackendResources
+	rTestPool *ResourceTestPool
 }
 
 // startWebApi starts our Web server.
@@ -70,10 +68,10 @@ func (b *BackendContext) InitBackend(cfg *Config) {
 	}
 	b.Resources = *core.NewBackendResources(rTypes, BuildStencil(cfg.Backend.DistProportions))
 
-	bridgestrapCtx := mechanisms.NewHttpsIpc(cfg.Backend.BridgestrapEndpoint)
-
+	b.rTestPool = NewResourceTestPool(cfg.Backend.BridgestrapEndpoint)
+	defer b.rTestPool.Stop()
 	for _, rType := range rTypes {
-		b.Resources.Collection[rType].OnAddFunc = queryBridgestrap(bridgestrapCtx)
+		b.Resources.Collection[rType].OnAddFunc = b.rTestPool.AddFunc()
 	}
 
 	quit := make(chan bool)

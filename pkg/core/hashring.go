@@ -274,14 +274,13 @@ func (h *Hashring) GetMany(k Hashkey, num int) ([]Resource, error) {
 		return nil, err
 	}
 
-	for j := i; j < num+i; {
+	for j := i; j < num+i; j++ {
 		r := h.Hashnodes[j%h.Len()].Elem
 		if r.State() != StateFunctional {
 			log.Printf("Skipping %q because its state is %d.", r.String(), r.State())
 			continue
 		}
 		resources = append(resources, h.Hashnodes[j%h.Len()].Elem)
-		j++
 	}
 
 	return resources, nil
