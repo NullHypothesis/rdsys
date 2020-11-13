@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
-	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/delivery"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
 
@@ -55,32 +54,6 @@ func pruneExpiredResources(rcol core.BackendResources) {
 		prunedResources := hashring.Prune()
 		if len(prunedResources) > 0 {
 			log.Printf("Pruned %d out of %d resources from %s hashring.", len(prunedResources), origLen, rName)
-		}
-	}
-}
-
-func queryBridgestrap(m delivery.Mechanism) core.OnAddFunc {
-
-	return func(r core.Resource) {
-		req := BridgestrapRequest{[]string{r.String()}}
-		resp := BridgestrapResponse{}
-		if err := m.MakeJsonRequest(req, &resp); err != nil {
-			log.Printf("Bridgestrap request failed: %s", err)
-			return
-		}
-
-		bridgeTest, exists := resp.Bridges[r.String()]
-		if !exists {
-			log.Printf("Bug: Bridgestrap's response doesn't contain requested resource: %v", resp)
-			return
-		}
-
-		r.Test().LastTested = time.Now().UTC()
-		if bridgeTest.Functional {
-			r.Test().State = core.StateFunctional
-		} else {
-			log.Printf("Resource %q not functional because: %s", r.String(), bridgeTest.Error)
-			r.Test().State = core.StateDysfunctional
 		}
 	}
 }
