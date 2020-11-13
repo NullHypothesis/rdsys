@@ -132,14 +132,14 @@ func TestHasLocationNotIn(t *testing.T) {
 
 func TestResourceBase(t *testing.T) {
 
-	b := &ResourceBase{RBlockedIn: make(LocationSet)}
+	b := NewResourceBase()
 
-	if b.State() != StateUntested {
+	if b.Test().State != StateUntested {
 		t.Errorf("resource base has wrong default state")
 	}
 
-	b.SetState(StateFunctional)
-	if b.State() != StateFunctional {
+	b.Test().State = StateFunctional
+	if b.Test().State != StateFunctional {
 		t.Errorf("failed to update resource base state")
 	}
 
@@ -209,5 +209,22 @@ func TestApplyDiff(t *testing.T) {
 	m.ApplyDiff(diff)
 	if len(m["dummy"]) != 0 {
 		t.Errorf("failed to remove resource from diff")
+	}
+}
+
+func TestResourceTests(t *testing.T) {
+
+	b := NewResourceBase()
+	if b.Test().State != StateUntested {
+		t.Fatal("unexpected resource state")
+	}
+
+	test := &ResourceTest{
+		State: StateDysfunctional,
+		Error: "something went wrong",
+	}
+	b.SetTest(test)
+	if b.Test().State != StateDysfunctional {
+		t.Fatal("unexpected resource state")
 	}
 }

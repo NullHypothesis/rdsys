@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc64"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -30,6 +31,7 @@ func (b *BackendContext) startWebApi(cfg *Config, srv *http.Server) {
 	log.Printf("Starting Web API at %s.", cfg.Backend.WebApi.ApiAddress)
 
 	mux := http.NewServeMux()
+	mux.Handle(cfg.Backend.StatusEndpoint, http.HandlerFunc(b.statusHandler))
 	mux.Handle(cfg.Backend.ResourceStreamEndpoint, http.HandlerFunc(b.resourcesHandler))
 	mux.Handle(cfg.Backend.ResourcesEndpoint, http.HandlerFunc(b.resourcesHandler))
 	mux.Handle(cfg.Backend.TargetsEndpoint, http.HandlerFunc(b.targetsHandler))
@@ -234,6 +236,48 @@ func (b *BackendContext) getResourceStreamHandler(w http.ResponseWriter, r *http
 				break
 			}
 		}
+	}
+}
+
+func (b *BackendContext) statusHandler(w http.ResponseWriter, r *http.Request) {
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "failed to parse parameters", http.StatusBadRequest)
+		return
+	}
+
+	id := r.FormValue("id")
+	if id == "" {
+		http.Error(w, "no 'id' parameter given", http.StatusBadRequest)
+		return
+	}
+	rType := r.FormValue("type")
+	if rType == "" {
+		http.Error(w, "no 'type' parameter given", http.StatusBadRequest)
+		return
+	}
+
+	sHashring, exists := b.Resources.Collection[rType]
+	if !exists {
+		http.Error(w, fmt.Sprintf("resource type %q does not exist", rType), http.StatusBadRequest)
+		return
+	}
+
+	table := crc64.MakeTable(resources.Crc64Polynomial)
+	key := core.Hashkey(crc64.Checksum([]byte(rType+id), table))
+	resource, err := sHashring.GetExact(key)
+	if err != nil {
+		http.Error(w, "could not find requested resource", http.StatusInternalServerError)
+		return
+	}
+
+	statuses := []string{"not yet tested", "functional", "dysfunctional"}
+	fmt.Fprintf(w, "Bridge state: %s\n", statuses[resource.Test().State])
+	if resource.Test().Error != "" {
+		fmt.Fprintf(w, "Error: %s\n", resource.Test().Error)
+	}
+	if resource.Test().State != core.StateUntested {
+		fmt.Fprintf(w, "Last tested: %s\n", resource.Test().LastTested)
 	}
 }
 

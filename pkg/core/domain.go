@@ -13,7 +13,7 @@ const (
 	// it's untested.  Afterwards, it's either functional or not functional.
 	StateUntested = iota
 	StateFunctional
-	StateNotFunctional
+	StateDysfunctional
 )
 
 // Resource specifies the resources that rdsys hands out to users.  This could
@@ -35,11 +35,20 @@ type Resource interface {
 	// identifiers.  If two resources have the same Oid, they must have the
 	// same Uid but not vice versa.
 	Oid() Hashkey
-	SetState(int)
-	State() int
+	SetTest(*ResourceTest)
+	Test() *ResourceTest
 	// Expiry returns the duration after which the resource should be deleted
 	// from the backend (if the backend hasn't received an update).
 	Expiry() time.Duration
+}
+
+// ResourceTest represents the result of a test of a resource.  We use the tool
+// bridgestrap for testing:
+// https://gitlab.torproject.org/tpo/anti-censorship/bridgestrap
+type ResourceTest struct {
+	State      int
+	LastTested time.Time
+	Error      string
 }
 
 // ResourceMap maps a resource type to a slice of respective resources.
@@ -221,12 +230,13 @@ type ResourceBase struct {
 	RType      string      `json:"type"`
 	RBlockedIn LocationSet `json:"blocked_in"`
 	Location   *Location
-	state      int
+	test       *ResourceTest
 }
 
 // NewResourceBase returns a new ResourceBase.
 func NewResourceBase() *ResourceBase {
-	return &ResourceBase{RBlockedIn: make(LocationSet)}
+	test := &ResourceTest{State: StateUntested}
+	return &ResourceBase{RBlockedIn: make(LocationSet), test: test}
 }
 
 // Type returns the resource's type.
@@ -239,14 +249,14 @@ func (r *ResourceBase) SetType(Type string) {
 	r.RType = Type
 }
 
-// SetState sets the resource's state to the given state.
-func (r *ResourceBase) SetState(state int) {
-	r.state = state
+// SetTest sets the resource's test result to the given ResourceTest.
+func (r *ResourceBase) SetTest(test *ResourceTest) {
+	r.test = test
 }
 
-// State returns the resource's state.
-func (r *ResourceBase) State() int {
-	return r.state
+// Test returns the resource's test result.
+func (r *ResourceBase) Test() *ResourceTest {
+	return r.test
 }
 
 // BlockedIn returns the set of locations that block the resource.

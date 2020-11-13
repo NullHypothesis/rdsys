@@ -5,6 +5,7 @@
         "api_endpoint_resources": "/resources",
         "api_endpoint_resource_stream": "/resource-stream",
         "api_endpoint_targets": "/targets",
+        "web_endpoint_status": "/status",
         "api_tokens": {
                 "https": "HttpsApiTokenPlaceholder",
                 "salmon": "SalmonApiTokenPlaceholder"
