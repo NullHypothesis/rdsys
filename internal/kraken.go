@@ -80,7 +80,7 @@ func queryBridgestrap(m delivery.Mechanism) core.OnAddFunc {
 			r.Test().State = core.StateFunctional
 		} else {
 			log.Printf("Resource %q not functional because: %s", r.String(), bridgeTest.Error)
-			r.Test().State = core.StateNotFunctional
+			r.Test().State = core.StateDysfunctional
 		}
 	}
 }

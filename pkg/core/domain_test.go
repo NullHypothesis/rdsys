@@ -220,11 +220,11 @@ func TestResourceTests(t *testing.T) {
 	}
 
 	test := &ResourceTest{
-		State: StateNotFunctional,
+		State: StateDysfunctional,
 		Error: "something went wrong",
 	}
 	b.SetTest(test)
-	if b.Test().State != StateNotFunctional {
+	if b.Test().State != StateDysfunctional {
 		t.Fatal("unexpected resource state")
 	}
 }

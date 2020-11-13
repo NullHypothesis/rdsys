@@ -152,7 +152,7 @@ func (p *ResourceTestPool) testResources() {
 			r.Test().State = core.StateFunctional
 		} else {
 			numDysfunctional++
-			r.Test().State = core.StateNotFunctional
+			r.Test().State = core.StateDysfunctional
 		}
 	}
 	log.Printf("Tested %d resources: %d functional and %d dysfunctional.",

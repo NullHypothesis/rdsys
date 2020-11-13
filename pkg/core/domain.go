@@ -13,7 +13,7 @@ const (
 	// it's untested.  Afterwards, it's either functional or not functional.
 	StateUntested = iota
 	StateFunctional
-	StateNotFunctional
+	StateDysfunctional
 )
 
 // Resource specifies the resources that rdsys hands out to users.  This could
