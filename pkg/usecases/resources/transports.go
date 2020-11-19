@@ -68,5 +68,5 @@ func (t *Transport) Oid() core.Hashkey {
 
 func (t *Transport) Uid() core.Hashkey {
 	table := crc64.MakeTable(Crc64Polynomial)
-	return core.Hashkey(crc64.Checksum([]byte(ResourceTypeObfs4+t.Fingerprint), table))
+	return core.Hashkey(crc64.Checksum([]byte(t.RType+t.Fingerprint), table))
 }

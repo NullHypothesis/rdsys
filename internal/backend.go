@@ -251,33 +251,41 @@ func (b *BackendContext) statusHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no 'id' parameter given", http.StatusBadRequest)
 		return
 	}
-	rType := r.FormValue("type")
-	if rType == "" {
-		http.Error(w, "no 'type' parameter given", http.StatusBadRequest)
-		return
-	}
 
-	sHashring, exists := b.Resources.Collection[rType]
-	if !exists {
-		http.Error(w, fmt.Sprintf("resource type %q does not exist", rType), http.StatusBadRequest)
-		return
-	}
+	var result []string
+	result = append(result, fmt.Sprintf("Bridge %s advertises:\n\n", id))
 
-	table := crc64.MakeTable(resources.Crc64Polynomial)
-	key := core.Hashkey(crc64.Checksum([]byte(rType+id), table))
-	resource, err := sHashring.GetExact(key)
-	if err != nil {
-		http.Error(w, "could not find requested resource", http.StatusInternalServerError)
-		return
-	}
-
+	// Iterate over each resource type that contains the given UID and add it
+	// to the final result.
+	foundResource := false
 	statuses := []string{"not yet tested", "functional", "dysfunctional"}
-	fmt.Fprintf(w, "Bridge state: %s\n", statuses[resource.Test().State])
-	if resource.Test().Error != "" {
-		fmt.Fprintf(w, "Error: %s\n", resource.Test().Error)
+	for rType, _ := range resources.ResourceMap {
+		sHashring, exists := b.Resources.Collection[rType]
+		if !exists {
+			continue
+		}
+
+		table := crc64.MakeTable(resources.Crc64Polynomial)
+		key := core.Hashkey(crc64.Checksum([]byte(rType+id), table))
+		resource, err := sHashring.GetExact(key)
+		if err != nil {
+			continue
+		}
+		foundResource = true
+
+		rResult := fmt.Sprintf("* %s: %s\n", rType, statuses[resource.Test().State])
+		if resource.Test().Error != "" {
+			rResult += fmt.Sprintf("  Error: %s\n", resource.Test().Error)
+		}
+		if resource.Test().State != core.StateUntested {
+			rResult += fmt.Sprintf("  Last tested: %s\n", resource.Test().LastTested)
+		}
+		result = append(result, rResult+"\n")
 	}
-	if resource.Test().State != core.StateUntested {
-		fmt.Fprintf(w, "Last tested: %s\n", resource.Test().LastTested)
+	if !foundResource {
+		http.Error(w, "no resources for the given id", http.StatusNotFound)
+	} else {
+		fmt.Fprintf(w, strings.Join(result, ""))
 	}
 }
 
