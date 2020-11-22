@@ -35,3 +35,8 @@ Usage
 2. Start a distributor, which distributes the backend's resources:
 
         ./rdsys-distributor -name salmon -config /path/to/config.json
+
+More documentation
+==================
+
+* [Design and architecture](doc/architecture.md)
