@@ -13,12 +13,9 @@ import (
 // Transport represents a Tor bridge's pluggable transport.
 type Transport struct {
 	core.ResourceBase
-	Protocol    string            `json:"protocol"`
-	Address     IPAddr            `json:"address"`
-	Port        uint16            `json:"port"`
-	Fingerprint string            `json:"fingerprint"`
-	Parameters  map[string]string `json:"params,omitempty"`
-	Bridge      *Bridge           `json:"-"`
+	BridgeBase
+	Parameters map[string]string `json:"params,omitempty"`
+	Bridge     *Bridge           `json:"-"`
 }
 
 // NewTransport returns a new Transport object.
@@ -51,10 +48,6 @@ func (t *Transport) IsValid() bool {
 	return t.Type() != "" && t.Address.String() != "" && t.Port != 0
 }
 
-func (t *Transport) IsPublic() bool {
-	return false
-}
-
 func (t *Transport) Expiry() time.Duration {
 	// Bridges should upload new descriptors at least every 18 hours:
 	// https://gitweb.torproject.org/torspec.git/tree/dir-spec.txt?id=c2a584144330239d6aa032b0acfb8b5ba26719fb#n369
@@ -67,6 +60,5 @@ func (t *Transport) Oid() core.Hashkey {
 }
 
 func (t *Transport) Uid() core.Hashkey {
-	table := crc64.MakeTable(Crc64Polynomial)
-	return core.Hashkey(crc64.Checksum([]byte(t.RType+t.Fingerprint), table))
+	return t.BridgeUid(t.RType)
 }

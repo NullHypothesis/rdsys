@@ -251,6 +251,8 @@ func (b *BackendContext) statusHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no 'id' parameter given", http.StatusBadRequest)
 		return
 	}
+	id = strings.TrimSpace(id)
+	id = strings.ToUpper(id)
 
 	var result []string
 	result = append(result, fmt.Sprintf("Bridge %s advertises:\n\n", id))
@@ -258,6 +260,7 @@ func (b *BackendContext) statusHandler(w http.ResponseWriter, r *http.Request) {
 	// Iterate over each resource type that contains the given UID and add it
 	// to the final result.
 	foundResource := false
+	table := crc64.MakeTable(resources.Crc64Polynomial)
 	statuses := []string{"not yet tested", "functional", "dysfunctional"}
 	for rType, _ := range resources.ResourceMap {
 		sHashring, exists := b.Resources.Collection[rType]
@@ -265,11 +268,20 @@ func (b *BackendContext) statusHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		table := crc64.MakeTable(resources.Crc64Polynomial)
 		key := core.Hashkey(crc64.Checksum([]byte(rType+id), table))
 		resource, err := sHashring.GetExact(key)
 		if err != nil {
-			continue
+			// We may have been given a non-hashed fingerprint.  Let's try to
+			// hash it, and see if we get a result.
+			hId, err := resources.HashFingerprint(id)
+			if err != nil {
+				continue
+			}
+			key := core.Hashkey(crc64.Checksum([]byte(rType+hId), table))
+			resource, err = sHashring.GetExact(key)
+			if err != nil {
+				continue
+			}
 		}
 		foundResource = true
 
