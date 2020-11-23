@@ -1,9 +1,12 @@
 package resources
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"hash/crc64"
+	"log"
 	"net"
 	"reflect"
 	"strings"
@@ -46,22 +49,45 @@ type Bridges struct {
 	Bridges map[string]*Bridge
 }
 
+// BridgeBase implements variables and methods that are shared by vanilla and
+// pluggable transport bridges.
+type BridgeBase struct {
+	Protocol    string `json:"protocol"`
+	Address     IPAddr `json:"address"`
+	Port        uint16 `json:"port"`
+	Fingerprint string `json:"fingerprint"`
+	Distributor string `json:"-"`
+}
+
 // Bridge represents a Tor bridge.
 type Bridge struct {
 	core.ResourceBase
-	Protocol    string           `json:"protocol"`
-	Address     IPAddr           `json:"address"`
-	Port        uint16           `json:"port"`
-	Fingerprint string           `json:"fingerprint"`
-	Distributor string           `json:"-"`
-	FirstSeen   time.Time        `json:"-"`
-	LastSeen    time.Time        `json:"-"`
-	BlockedIn   []*core.Location `json:"-"`
-	Transports  []*Transport     `json:"-"`
+	BridgeBase
+	FirstSeen  time.Time    `json:"-"`
+	LastSeen   time.Time    `json:"-"`
+	Transports []*Transport `json:"-"`
 }
 
-func (b Bridge) IsPublic() bool {
+// IsPublic always returns false because neither vanilla nor pluggable
+// transport bridges are public.  (Granted, our default bridges are, but we
+// don't distribute them using rdsys.)
+func (b *BridgeBase) IsPublic() bool {
 	return false
+}
+
+// BridgeUid determines a bridge's hash key by first hashing its fingerprint,
+// and then calculating a CRC-64 over a concatenation of the bridge's type and
+// its hashed fingerprint.
+func (b *BridgeBase) BridgeUid(rType string) core.Hashkey {
+	table := crc64.MakeTable(Crc64Polynomial)
+
+	hFingerprint, err := HashFingerprint(b.Fingerprint)
+	if err != nil {
+		log.Printf("Bug: Error while hashing fingerprint %s.", b.Fingerprint)
+		hFingerprint = b.Fingerprint
+	}
+
+	return core.Hashkey(crc64.Checksum([]byte(rType+hFingerprint), table))
 }
 
 // NewBridges allocates and returns a new Bridges object.
@@ -106,8 +132,7 @@ func (b *Bridge) Oid() core.Hashkey {
 }
 
 func (b *Bridge) Uid() core.Hashkey {
-	table := crc64.MakeTable(Crc64Polynomial)
-	return core.Hashkey(crc64.Checksum([]byte(ResourceTypeVanilla+b.Fingerprint), table))
+	return b.BridgeUid(b.RType)
 }
 
 func (b *Bridge) String() string {
@@ -122,4 +147,21 @@ func (b *Bridge) Expiry() time.Duration {
 
 func GetTorBridgeTypes() []string {
 	return []string{ResourceTypeVanilla, ResourceTypeObfs4}
+}
+
+// HashFingerprint takes as input a bridge's fingerprint and hashes it using
+// SHA-1, as discussed by Tor Metrics:
+// https://metrics.torproject.org/onionoo.html#parameters_lookup
+func HashFingerprint(fingerprint string) (string, error) {
+
+	fingerprint = strings.TrimSpace(fingerprint)
+
+	rawFingerprint, err := hex.DecodeString(fingerprint)
+	if err != nil {
+		return "", err
+	}
+
+	rawHFingerprint := sha1.Sum(rawFingerprint)
+	hFingerprint := hex.EncodeToString(rawHFingerprint[:])
+	return strings.ToUpper(hFingerprint), nil
 }
