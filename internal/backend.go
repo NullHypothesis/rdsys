@@ -290,7 +290,9 @@ func (b *BackendContext) statusHandler(w http.ResponseWriter, r *http.Request) {
 			rResult += fmt.Sprintf("  Error: %s\n", resource.Test().Error)
 		}
 		if resource.Test().State != core.StateUntested {
-			rResult += fmt.Sprintf("  Last tested: %s\n", resource.Test().LastTested)
+			lastTested := resource.Test().LastTested
+			tDiff := time.Now().UTC().Sub(lastTested)
+			rResult += fmt.Sprintf("  Last tested: %s (%s ago)\n", lastTested, tDiff)
 		}
 		result = append(result, rResult+"\n")
 	}
