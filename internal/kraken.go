@@ -63,20 +63,23 @@ func reloadBridgeDescriptors(extrainfoFile string, rcol core.BackendResources) {
 
 	var err error
 	var res []core.Resource
-	log.Println("Reloading bridge descriptors.")
 
-	res, err = loadBridgesFromExtrainfo(extrainfoFile)
-	if err != nil {
-		log.Printf("Failed to reload bridge descriptors: %s", err)
-	} else {
-		log.Printf("Successfully reloaded %d bridge descriptors.", len(res))
-	}
+	for _, filename := range []string{extrainfoFile, extrainfoFile + ".new"} {
+		log.Printf("Reloading bridge descriptors from %q.", filename)
+		res, err = loadBridgesFromExtrainfo(filename)
+		if err != nil {
+			log.Printf("Failed to reload bridge descriptors: %s", err)
+			continue
+		} else {
+			log.Printf("Successfully reloaded %d bridge descriptors.", len(res))
+		}
 
-	log.Printf("Adding %d new resources.", len(res))
-	for _, resource := range res {
-		rcol.Add(resource)
+		log.Printf("Adding %d new resources.", len(res))
+		for _, resource := range res {
+			rcol.Add(resource)
+		}
+		log.Println("Done adding new resources.")
 	}
-	log.Println("Done adding new resources.")
 }
 
 // loadBridgesFromExtrainfo loads and returns bridges from Serge's extrainfo
@@ -85,14 +88,12 @@ func loadBridgesFromExtrainfo(extrainfoFile string) ([]core.Resource, error) {
 
 	file, err := os.Open(extrainfoFile)
 	if err != nil {
-		log.Printf("Failed to open extrainfo file: %s", err)
 		return nil, err
 	}
 	defer file.Close()
 
 	extra, err := ParseExtrainfoDoc(file)
 	if err != nil {
-		log.Printf("Failed to read bridges from extrainfo file: %s", err)
 		return nil, err
 	}
 
