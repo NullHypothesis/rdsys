@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -52,9 +53,17 @@ func NewBackendResources(rNames []string, stencil *Stencil) *BackendResources {
 
 // String returns a summary of the backend resources.
 func (ctx *BackendResources) String() string {
+
+	keys := []string{}
+	for rType := range ctx.Collection {
+		keys = append(keys, rType)
+	}
+	sort.Strings(keys)
+
 	s := []string{}
-	for rType, sHashring := range ctx.Collection {
-		s = append(s, fmt.Sprintf("%d %s", sHashring.Len(), rType))
+	for _, key := range keys {
+		h := ctx.Collection[key]
+		s = append(s, fmt.Sprintf("%d %s", h.Len(), key))
 	}
 	return strings.Join(s, ", ")
 }
