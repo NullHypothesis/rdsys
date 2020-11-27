@@ -58,27 +58,24 @@ func pruneExpiredResources(rcol core.BackendResources) {
 	}
 }
 
-// reloadBridgeDescriptors reloads bridge descriptor from the given file.
+// reloadBridgeDescriptors reloads bridge descriptors from the given
+// cached-extrainfo file and its corresponding cached-extrainfo.new.
 func reloadBridgeDescriptors(extrainfoFile string, rcol core.BackendResources) {
 
 	var err error
 	var res []core.Resource
 
 	for _, filename := range []string{extrainfoFile, extrainfoFile + ".new"} {
-		log.Printf("Reloading bridge descriptors from %q.", filename)
 		res, err = loadBridgesFromExtrainfo(filename)
 		if err != nil {
 			log.Printf("Failed to reload bridge descriptors: %s", err)
 			continue
-		} else {
-			log.Printf("Successfully reloaded %d bridge descriptors.", len(res))
 		}
 
-		log.Printf("Adding %d new resources.", len(res))
+		log.Printf("Adding %d resources from %q.", len(res), filename)
 		for _, resource := range res {
 			rcol.Add(resource)
 		}
-		log.Println("Done adding new resources.")
 	}
 }
 
