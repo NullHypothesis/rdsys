@@ -1,6 +1,7 @@
 package core
 
 import (
+	"sync"
 	"testing"
 	"time"
 )
@@ -205,6 +206,41 @@ func TestRemove(t *testing.T) {
 	}
 }
 
+func TestAddOrUpdate(t *testing.T) {
+	d := NewDummy(1, 1)
+	newD := NewDummy(2, 1)
+	h := NewHashring()
+
+	h.AddOrUpdate(d)
+
+	// Adding a modified d must change the resource's object ID.
+	h.AddOrUpdate(newD)
+	d2, _ := h.GetExact(1)
+	if d2.Oid() != newD.Oid() {
+		t.Fatal("resource's object it was not updated")
+	}
+
+	// Adding an already-existing resource should update its LastUpdate.
+	i, _ := h.getIndex(d.Uid())
+	oldTimestamp := h.Hashnodes[i].LastUpdate
+
+	h.AddOrUpdate(newD)
+
+	i, _ = h.getIndex(d.Uid())
+	newTimestamp := h.Hashnodes[i].LastUpdate
+
+	if newTimestamp == oldTimestamp {
+		t.Fatal("failed to update timestamp of hashnode")
+	}
+
+	i, _ = h.getIndex(d.Uid())
+	sameTimestamp := h.Hashnodes[i].LastUpdate
+
+	if newTimestamp != sameTimestamp {
+		t.Fatal("timestamp should be identical")
+	}
+}
+
 func TestDiff(t *testing.T) {
 
 	h1 := &Hashring{}
@@ -275,4 +311,63 @@ func TestPrune(t *testing.T) {
 		t.Fatal("hashring has incorrect length")
 	}
 
+}
+
+func TestMaybeTestResource(t *testing.T) {
+	numTests := 0
+	d1 := NewDummy(0, 0)
+	h := NewHashring()
+	wg := new(sync.WaitGroup)
+	h.TestFunc = func(r Resource) {
+		// Increment counter each time our test function is called.  That makes
+		// it easy to keep track of how often a resource is tested.
+		numTests += 1
+		r.Test().State = StateFunctional
+		r.Test().LastTested = time.Now().UTC()
+		wg.Done()
+	}
+	addOrUpdateAndWait := func(r Resource) {
+		wg.Add(1)
+		h.AddOrUpdate(r)
+		wg.Wait()
+	}
+
+	// Adding a fresh resource must result in a test.
+	addOrUpdateAndWait(d1)
+	if numTests != 1 {
+		t.Fatalf("new resource wasn't tested")
+	}
+
+	// Adding the same, unmodified resource again must not result in a test.
+	h.AddOrUpdate(d1)
+	if numTests != 1 {
+		t.Fatalf("unmodified resource was tested again")
+	}
+
+	// A modified resource (i.e. its unique ID remained the same but its object
+	// ID changed) must be tested again.
+	modifiedD1 := NewDummy(1, 0)
+	addOrUpdateAndWait(modifiedD1)
+	if numTests != 2 {
+		t.Fatalf("failed to test modified resource")
+	}
+
+	// An expired resource must be tested again.
+	modifiedD1.ExpiryTime = -time.Minute
+	addOrUpdateAndWait(modifiedD1)
+	if numTests != 3 {
+		t.Fatalf("failed to test expired resource")
+	}
+
+	// A resource that somehow lost its state must be tested again.
+	modifiedD1.Test().State = StateUntested
+	addOrUpdateAndWait(modifiedD1)
+	if numTests != 4 {
+		t.Fatalf("stateless resource was not tested again")
+	}
+
+	// Finally, let's make sure that the resource's state was set correctly.
+	if modifiedD1.Test().State == StateUntested {
+		t.Fatal("resource state was not set corrected by testing")
+	}
 }

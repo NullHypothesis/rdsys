@@ -76,8 +76,7 @@ func (ctx *BackendResources) Add(r1 Resource) {
 		// The unique ID doesn't exist, so we're dealing with a new resource.
 		ctx.propagateUpdate(r1, ResourceIsNew)
 	}
-
-	hashring.ForceAdd(r1)
+	hashring.AddOrUpdate(r1)
 }
 
 // Get returns a slice of resources of the requested type for the given

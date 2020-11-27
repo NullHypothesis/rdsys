@@ -110,7 +110,7 @@ func (h *Hashring) ApplyDiff(d *ResourceDiff) {
 	for rType, resources := range d.Changed {
 		log.Printf("Changing %d resources of type %s.", len(resources), rType)
 		for _, r := range resources {
-			h.ForceAdd(r)
+			h.AddOrUpdate(r)
 		}
 	}
 	for rType, resources := range d.Gone {
@@ -169,10 +169,7 @@ func (h *Hashring) Add(r Resource) error {
 		h.Hashnodes[i].LastUpdate = time.Now().UTC()
 		return errors.New("resource already present in hashring")
 	}
-	// Run our "on-add" hook.
-	if h.OnAddFunc != nil {
-		go h.OnAddFunc(r)
-	}
+	h.maybeTestResource(r)
 
 	n := NewHashnode(r.Uid(), r)
 	h.Hashnodes = append(h.Hashnodes, n)
@@ -180,21 +177,50 @@ func (h *Hashring) Add(r Resource) error {
 	return nil
 }
 
-// ForceAdd adds the given resource to the hashring.  If the resource is
-// already present, it's silently overwritten.
-func (h *Hashring) ForceAdd(r Resource) {
+// maybeTestResource may test the given resource.  The resource is *not* tested
+// if all of the following conditions are met:
+//
+//   * The resource (as identified by its UID *and* OID) already exists.
+//   * The resource has been last tested before the resource's expiry.
+func (h *Hashring) maybeTestResource(r Resource) {
+
+	var oldR Resource
+	// Does the resource already exist in our hashring?
+	if i, err := h.getIndex(r.Uid()); err == nil {
+		oldR = h.Hashnodes[i].Elem
+		// And is it exactly the same as the one we're dealing with?
+		if oldR.Oid() == r.Oid() {
+			rTest := oldR.Test()
+			r = oldR
+			// Is the resource already tested?
+			if rTest != nil && rTest.State != StateUntested {
+				// And if so, has it been tested recently?
+				if time.Now().UTC().Sub(rTest.LastTested) < oldR.Expiry() {
+					return
+				}
+			}
+		}
+	}
+	if h.TestFunc != nil {
+		go h.TestFunc(r)
+	}
+}
+
+// AddOrUpdate attempts to add the given resource to the hashring.  If it
+// already is in the hashring, we update it if (and only if) its object ID
+// changed.
+func (h *Hashring) AddOrUpdate(r Resource) {
 	h.Lock()
 	defer h.Unlock()
 
-	// Run our "on-add" hook.
-	if h.OnAddFunc != nil {
-		go h.OnAddFunc(r)
-	}
-
+	h.maybeTestResource(r)
 	// Does the hashring already have the resource?
 	if i, err := h.getIndex(r.Uid()); err == nil {
 		h.Hashnodes[i].LastUpdate = time.Now().UTC()
-		h.Hashnodes[i].Elem = r
+		// If so, we only update it if its object ID changed.
+		if h.Hashnodes[i].Elem.Oid() != r.Oid() {
+			h.Hashnodes[i].Elem = r
+		}
 	} else {
 		n := NewHashnode(r.Uid(), r)
 		h.Hashnodes = append(h.Hashnodes, n)
