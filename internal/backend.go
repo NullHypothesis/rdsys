@@ -73,7 +73,7 @@ func (b *BackendContext) InitBackend(cfg *Config) {
 	b.rTestPool = NewResourceTestPool(cfg.Backend.BridgestrapEndpoint)
 	defer b.rTestPool.Stop()
 	for _, rType := range rTypes {
-		b.Resources.Collection[rType].OnAddFunc = b.rTestPool.AddFunc()
+		b.Resources.Collection[rType].TestFunc = b.rTestPool.GetTestFunc()
 	}
 
 	quit := make(chan bool)

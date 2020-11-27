@@ -32,7 +32,7 @@ type Hashnode struct {
 // Hashring represents a hashring consisting of resources.
 type Hashring struct {
 	Hashnodes []*Hashnode
-	OnAddFunc OnAddFunc
+	TestFunc  TestFunc
 	sync.RWMutex
 }
 
@@ -40,8 +40,8 @@ type Hashring struct {
 // its filtering criteria.
 type FilterFunc func(r Resource) bool
 
-// OnAddFunc takes as input a resource and does with it whatever it pleases.
-type OnAddFunc func(r Resource)
+// TestFunc takes as input a resource and tests it.
+type TestFunc func(r Resource)
 
 // NewResourceDiff returns a new ResourceDiff.
 func NewResourceDiff() *ResourceDiff {
@@ -62,7 +62,7 @@ func NewHashnode(k Hashkey, r Resource) *Hashnode {
 func NewHashring() *Hashring {
 
 	h := &Hashring{}
-	h.OnAddFunc = func(r Resource) {}
+	h.TestFunc = func(r Resource) {}
 	return h
 }
 

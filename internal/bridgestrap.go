@@ -65,10 +65,10 @@ func NewResourceTestPool(apiEndpoint string) *ResourceTestPool {
 	return p
 }
 
-// AddFunc returns a function that's executed when a new resource is added to
+// GetTestFunc returns a function that's executed when a new resource is added to
 // rdsys's backend.  The function takes as input a resource and adds it to our
 // testing pool.
-func (p *ResourceTestPool) AddFunc() core.OnAddFunc {
+func (p *ResourceTestPool) GetTestFunc() core.TestFunc {
 	return func(r core.Resource) {
 		p.Lock()
 		defer p.Unlock()

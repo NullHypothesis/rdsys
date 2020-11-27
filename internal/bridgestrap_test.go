@@ -19,12 +19,12 @@ func (d *DummyDelivery) MakeJsonRequest(req interface{}, resp interface{}) error
 	return nil
 }
 
-func TestAddFunc(t *testing.T) {
+func TestTestFunc(t *testing.T) {
 
 	p := NewResourceTestPool("")
 	// Replace our HTTPS IPC with our dummy to facilitate testing.
 	p.ipc = &DummyDelivery{}
-	f := p.AddFunc()
+	f := p.GetTestFunc()
 	dummies := [25]*core.Dummy{}
 	for i := 0; i < len(dummies); i++ {
 		k := core.Hashkey(i)
