@@ -14,7 +14,11 @@ type Dummy struct {
 }
 
 func NewDummy(oid Hashkey, uid Hashkey) *Dummy {
-	return &Dummy{ObjectId: oid, UniqueId: uid, test: &ResourceTest{State: StateFunctional}}
+	return &Dummy{
+		ObjectId:   oid,
+		UniqueId:   uid,
+		test:       &ResourceTest{State: StateFunctional},
+		ExpiryTime: time.Hour}
 }
 func (d *Dummy) Oid() Hashkey {
 	return d.ObjectId
