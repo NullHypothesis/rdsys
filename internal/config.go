@@ -26,6 +26,7 @@ type BackendConfig struct {
 	StatusEndpoint         string            `json:"web_endpoint_status"`
 	BridgestrapEndpoint    string            `json:"bridgestrap_endpoint"`
 	DistProportions        map[string]int    `json:"distribution_proportions"`
+	SupportedResources     []string          `json:"supported_resources"`
 	WebApi                 WebApiConfig      `json:"web_api"`
 }
 

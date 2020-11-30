@@ -73,7 +73,10 @@ func (ctx *BackendResources) String() string {
 // object ID changed), we update the existing resource.
 func (ctx *BackendResources) Add(r1 Resource) {
 
-	hashring := ctx.Collection[r1.Type()]
+	hashring, exists := ctx.Collection[r1.Type()]
+	if !exists {
+		return
+	}
 	if i, err := hashring.getIndex(r1.Uid()); err == nil {
 		// The resource's unique ID already exists.  That means, the resource
 		// either remains the same, or it changed (i.e. its object ID differs).
@@ -122,6 +125,10 @@ func (ctx *BackendResources) Prune() {
 func (ctx *BackendResources) propagateUpdate(r Resource, event int) {
 	ctx.Lock()
 	defer ctx.Unlock()
+
+	if _, exists := ctx.Collection[r.Type()]; !exists {
+		return
+	}
 
 	// Prepare the hashring difference that we're about to send.
 	diff := &ResourceDiff{}
