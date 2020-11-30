@@ -123,7 +123,7 @@ func (b *Bridge) IsValid() bool {
 }
 
 func (b *Bridge) GetBridgeLine() string {
-	return strings.TrimSpace(fmt.Sprintf("%s:%d %s", b.Address.String(), b.Port, b.Fingerprint))
+	return strings.TrimSpace(fmt.Sprintf("%s:%d %s", PrintTorAddr(&b.Address), b.Port, b.Fingerprint))
 }
 
 func (b *Bridge) Oid() core.Hashkey {
@@ -147,6 +147,18 @@ func (b *Bridge) Expiry() time.Duration {
 
 func GetTorBridgeTypes() []string {
 	return []string{ResourceTypeVanilla, ResourceTypeObfs4}
+}
+
+// PrintTorAddr takes as input a *IPAddr object and if it contains an IPv6
+// address, it wraps it in square brackets.  This is necessary because Tor
+// expects IPv6 addresses enclosed by square brackets.
+func PrintTorAddr(a *IPAddr) string {
+	s := a.String()
+	if v4 := a.IP.To4(); len(v4) == net.IPv4len {
+		return s
+	} else {
+		return fmt.Sprintf("[%s]", s)
+	}
 }
 
 // HashFingerprint takes as input a bridge's fingerprint and hashes it using

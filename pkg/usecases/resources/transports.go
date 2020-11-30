@@ -40,7 +40,7 @@ func (t *Transport) String() string {
 	sort.Strings(args)
 
 	strRep := fmt.Sprintf("%s %s:%d %s %s",
-		t.Type(), t.Address.String(), t.Port, t.Fingerprint, strings.Join(args, " "))
+		t.Type(), PrintTorAddr(&t.Address), t.Port, t.Fingerprint, strings.Join(args, " "))
 	return strings.TrimSpace(strRep)
 }
 
