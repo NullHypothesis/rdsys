@@ -6,6 +6,7 @@
         "api_endpoint_resource_stream": "/resource-stream",
         "api_endpoint_targets": "/targets",
         "web_endpoint_status": "/status",
+        "supported_resources": ["vanilla", "obfs2", "obfs3", "obfs4", "scramblesuit"],
         "api_tokens": {
                 "https": "HttpsApiTokenPlaceholder",
                 "salmon": "SalmonApiTokenPlaceholder"
