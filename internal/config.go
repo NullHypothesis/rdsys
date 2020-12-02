@@ -24,6 +24,7 @@ type BackendConfig struct {
 	ResourceStreamEndpoint string            `json:"api_endpoint_resource_stream"`
 	TargetsEndpoint        string            `json:"api_endpoint_targets"`
 	StatusEndpoint         string            `json:"web_endpoint_status"`
+	MetricsEndpoint        string            `json:"web_endpoint_metrics"`
 	BridgestrapEndpoint    string            `json:"bridgestrap_endpoint"`
 	DistProportions        map[string]int    `json:"distribution_proportions"`
 	SupportedResources     []string          `json:"supported_resources"`
