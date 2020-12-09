@@ -1,11 +1,12 @@
 {
     "backend": {
         "extrainfo_file": "cached-extrainfo",
-        "bridgestrap_endpoint": "http://127.0.0.1:5000/bridge-state",
+        "bridgestrap_endpoint": "http://127.0.0.1:5001/bridge-state",
         "api_endpoint_resources": "/resources",
         "api_endpoint_resource_stream": "/resource-stream",
         "api_endpoint_targets": "/targets",
         "web_endpoint_status": "/status",
+        "web_endpoint_metrics": "/rdsys-backend-metrics",
         "supported_resources": ["vanilla", "obfs2", "obfs3", "obfs4", "scramblesuit"],
         "api_tokens": {
                 "https": "HttpsApiTokenPlaceholder",

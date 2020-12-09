@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
 )
@@ -23,11 +24,12 @@ const (
 	ExtraInfoPrefix      = "extra-info"
 )
 
-func InitKraken(cfg *Config, shutdown chan bool, ready chan bool, rcol core.BackendResources) {
+func InitKraken(cfg *Config, shutdown chan bool, ready chan bool, bCtx *BackendContext) {
 	log.Println("Initialising resource kraken.")
 	ticker := time.NewTicker(KrakenTickerInterval)
 	defer ticker.Stop()
 
+	rcol := bCtx.Resources
 	// Immediately parse bridge descriptor when we're called, and let caller
 	// know when we're done.
 	reloadBridgeDescriptors(cfg.Backend.ExtrainfoFile, rcol)
@@ -41,13 +43,43 @@ func InitKraken(cfg *Config, shutdown chan bool, ready chan bool, rcol core.Back
 		case <-ticker.C:
 			log.Println("Kraken's ticker is ticking.")
 			reloadBridgeDescriptors(cfg.Backend.ExtrainfoFile, rcol)
-			pruneExpiredResources(rcol)
+			pruneExpiredResources(bCtx.metrics, rcol)
+			calcTestedResources(bCtx.metrics, rcol)
 			log.Printf("Backend resources: %s", &rcol)
 		}
 	}
 }
 
-func pruneExpiredResources(rcol core.BackendResources) {
+// calcTestedResources determines the fraction of each resource state per
+// resource type and exposes them via Prometheus.  The function can tell us
+// that e.g. among all obfs4 bridges, 0.2 are untested, 0.7 are functional, and
+// 0.1 are dysfunctional.
+func calcTestedResources(metrics *Metrics, rcol core.BackendResources) {
+
+	// Map our numerical resource states to human-friendly strings.
+	toStr := map[int]string{
+		core.StateUntested:      "untested",
+		core.StateFunctional:    "functional",
+		core.StateDysfunctional: "dysfunctional",
+	}
+
+	for rName, hashring := range rcol.Collection {
+		nums := map[int]int{
+			core.StateUntested:      0,
+			core.StateFunctional:    0,
+			core.StateDysfunctional: 0,
+		}
+		for _, r := range hashring.GetAll() {
+			nums[r.Test().State] += 1
+		}
+		for state, num := range nums {
+			frac := float64(num) / float64(hashring.Len())
+			metrics.TestedResources.With(prometheus.Labels{"type": rName, "status": toStr[state]}).Set(frac)
+		}
+	}
+}
+
+func pruneExpiredResources(metrics *Metrics, rcol core.BackendResources) {
 
 	for rName, hashring := range rcol.Collection {
 		origLen := hashring.Len()
@@ -55,6 +87,7 @@ func pruneExpiredResources(rcol core.BackendResources) {
 		if len(prunedResources) > 0 {
 			log.Printf("Pruned %d out of %d resources from %s hashring.", len(prunedResources), origLen, rName)
 		}
+		metrics.Resources.With(prometheus.Labels{"type": rName}).Set(float64(hashring.Len()))
 	}
 }
 

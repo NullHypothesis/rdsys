@@ -17,6 +17,9 @@ import (
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/resources"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // BackendContext contains the state that our backend requires.
@@ -24,6 +27,16 @@ type BackendContext struct {
 	Config    *Config
 	Resources core.BackendResources
 	rTestPool *ResourceTestPool
+	metrics   *Metrics
+}
+
+// metricsWrapper keeps track of the number of times each of our API endpoints
+// is called.
+func metricsWrapper(f http.HandlerFunc, endpoint string, metrics *Metrics) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		metrics.Requests.With(prometheus.Labels{"target": endpoint}).Inc()
+		f(w, r)
+	}
 }
 
 // startWebApi starts our Web server.
@@ -31,10 +44,16 @@ func (b *BackendContext) startWebApi(cfg *Config, srv *http.Server) {
 	log.Printf("Starting Web API at %s.", cfg.Backend.WebApi.ApiAddress)
 
 	mux := http.NewServeMux()
-	mux.Handle(cfg.Backend.StatusEndpoint, http.HandlerFunc(b.statusHandler))
-	mux.Handle(cfg.Backend.ResourceStreamEndpoint, http.HandlerFunc(b.resourcesHandler))
-	mux.Handle(cfg.Backend.ResourcesEndpoint, http.HandlerFunc(b.resourcesHandler))
-	mux.Handle(cfg.Backend.TargetsEndpoint, http.HandlerFunc(b.targetsHandler))
+	endpoints := map[string]http.HandlerFunc{
+		cfg.Backend.StatusEndpoint:         b.statusHandler,
+		cfg.Backend.ResourceStreamEndpoint: b.resourcesHandler,
+		cfg.Backend.ResourcesEndpoint:      b.resourcesHandler,
+		cfg.Backend.TargetsEndpoint:        b.targetsHandler,
+		cfg.Backend.MetricsEndpoint:        promhttp.Handler().(http.HandlerFunc),
+	}
+	for endpoint, handler := range endpoints {
+		mux.Handle(endpoint, metricsWrapper(handler, endpoint, b.metrics))
+	}
 	srv.Handler = mux
 	srv.Addr = cfg.Backend.WebApi.ApiAddress
 
@@ -73,6 +92,7 @@ func (b *BackendContext) InitBackend(cfg *Config) {
 		rTypes = append(rTypes, rType)
 	}
 	b.Resources = *core.NewBackendResources(rTypes, BuildStencil(cfg.Backend.DistProportions))
+	b.metrics = InitMetrics()
 
 	b.rTestPool = NewResourceTestPool(cfg.Backend.BridgestrapEndpoint)
 	defer b.rTestPool.Stop()
@@ -87,7 +107,7 @@ func (b *BackendContext) InitBackend(cfg *Config) {
 	go func() {
 		wg.Add(1)
 		defer wg.Done()
-		InitKraken(cfg, quit, ready, b.Resources)
+		InitKraken(cfg, quit, ready, b)
 	}()
 
 	var srv http.Server
