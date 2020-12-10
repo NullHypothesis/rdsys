@@ -42,9 +42,9 @@ type HttpsDistConfig struct {
 }
 
 type SalmonDistConfig struct {
-	WorkingDirectory string       `json:"working_directory"`
-	Resources        []string     `json:"resources"`
-	WebApi           WebApiConfig `json:"web_api"`
+	Resources  []string     `json:"resources"`
+	WebApi     WebApiConfig `json:"web_api"`
+	WorkingDir string       `json:"working_dir"` // This is where Salmon stores its state.
 }
 
 type WebApiConfig struct {

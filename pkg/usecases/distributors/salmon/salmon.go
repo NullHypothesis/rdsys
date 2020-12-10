@@ -40,7 +40,7 @@ type SalmonDistributor struct {
 	shutdown chan bool
 
 	TokenCache        map[string]*TokenMetaInfo
-	TokenCacheMutex   sync.Mutex
+	tokenCacheMutex   sync.Mutex
 	Users             map[string]*User
 	AssignedProxies   core.ResourceMap
 	UnassignedProxies core.ResourceMap
@@ -162,9 +162,9 @@ func (s *SalmonDistributor) Init(cfg *internal.Config) {
 	s.wg.Add(1)
 	go s.housekeeping(rStream)
 
-	s.TokenCacheMutex.Lock()
-	defer s.TokenCacheMutex.Unlock()
-	err := internal.Deserialise(cfg.Distributors.Salmon.WorkingDirectory+TokenCacheFile, &s.TokenCache)
+	s.tokenCacheMutex.Lock()
+	defer s.tokenCacheMutex.Unlock()
+	err := internal.Deserialise(cfg.Distributors.Salmon.WorkingDir+TokenCacheFile, &s.TokenCache)
 	if err != nil {
 		log.Printf("Warning: Failed to deserialise token cache: %s", err)
 	}
@@ -174,9 +174,9 @@ func (s *SalmonDistributor) Init(cfg *internal.Config) {
 func (s *SalmonDistributor) Shutdown() {
 
 	// Write our token cache to disk so it can persist across restarts.
-	s.TokenCacheMutex.Lock()
-	defer s.TokenCacheMutex.Unlock()
-	err := internal.Serialise(s.cfg.Distributors.Salmon.WorkingDirectory+TokenCacheFile, s.TokenCache)
+	s.tokenCacheMutex.Lock()
+	defer s.tokenCacheMutex.Unlock()
+	err := internal.Serialise(s.cfg.Distributors.Salmon.WorkingDir+TokenCacheFile, s.TokenCache)
 	if err != nil {
 		log.Printf("Warning: Failed to serialise token cache: %s", err)
 	}
@@ -329,8 +329,8 @@ func (s *SalmonDistributor) housekeeping(rStream chan *core.ResourceDiff) {
 // pruneTokenCache removes expired tokens from our token cache.
 func (s *SalmonDistributor) pruneTokenCache() {
 
-	s.TokenCacheMutex.Lock()
-	defer s.TokenCacheMutex.Unlock()
+	s.tokenCacheMutex.Lock()
+	defer s.tokenCacheMutex.Unlock()
 
 	prevLen := len(s.TokenCache)
 	for token, metaInfo := range s.TokenCache {
@@ -360,8 +360,8 @@ func (s *SalmonDistributor) CreateInvite(secretId string) (string, error) {
 		return "", errors.New("user's trust level not high enough to issue invites")
 	}
 
-	s.TokenCacheMutex.Lock()
-	defer s.TokenCacheMutex.Unlock()
+	s.tokenCacheMutex.Lock()
+	defer s.tokenCacheMutex.Unlock()
 
 	var token string
 	var err error
@@ -392,8 +392,8 @@ func (s *SalmonDistributor) CreateInvite(secretId string) (string, error) {
 // function returns the new user's secret ID; otherwise an error.
 func (s *SalmonDistributor) RedeemInvite(token string) (string, error) {
 
-	s.TokenCacheMutex.Lock()
-	defer s.TokenCacheMutex.Unlock()
+	s.tokenCacheMutex.Lock()
+	defer s.tokenCacheMutex.Unlock()
 
 	metaInfo, exists := s.TokenCache[token]
 	if !exists {

@@ -11,7 +11,7 @@ type Stringer interface {
 
 type Set struct {
 	Set map[interface{}]struct{}
-	sync.Mutex
+	m   sync.Mutex
 }
 
 func NewSet() *Set {
@@ -21,8 +21,8 @@ func NewSet() *Set {
 }
 
 func (s *Set) Remove(item interface{}) error {
-	s.Lock()
-	defer s.Unlock()
+	s.m.Lock()
+	defer s.m.Unlock()
 
 	// Does the given key exist in the set?
 	if _, exists := s.Set[item]; !exists {
@@ -33,20 +33,20 @@ func (s *Set) Remove(item interface{}) error {
 }
 
 func (s *Set) Add(item interface{}) {
-	s.Lock()
-	defer s.Unlock()
+	s.m.Lock()
+	defer s.m.Unlock()
 	s.Set[item] = struct{}{}
 }
 
 func (s *Set) Contains(item interface{}) bool {
-	s.Lock()
-	defer s.Unlock()
+	s.m.Lock()
+	defer s.m.Unlock()
 	_, exists := s.Set[item]
 	return exists
 }
 
 func (s *Set) Length() int {
-	s.Lock()
-	defer s.Unlock()
+	s.m.Lock()
+	defer s.m.Unlock()
 	return len(s.Set)
 }

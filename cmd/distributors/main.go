@@ -5,7 +5,10 @@ import (
 	"log"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/internal"
-	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/presentation/distributors"
+	httpsUI "gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/presentation/distributors/https"
+	salmonWeb "gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/presentation/distributors/salmon"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/distributors/https"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/distributors/salmon"
 )
 
 func main() {
@@ -26,5 +29,15 @@ func main() {
 		log.Fatal(err)
 	}
 
-	distributors.Run(distName, cfg)
+	var constructors = map[string]func(*internal.Config){
+		salmon.DistName: salmonWeb.InitFrontend,
+		https.DistName:  httpsUI.InitFrontend,
+	}
+	runFunc, exists := constructors[distName]
+	if !exists {
+		log.Fatalf("Distributor %q not found.", distName)
+	}
+
+	log.Printf("Starting distributor %q.", distName)
+	runFunc(cfg)
 }

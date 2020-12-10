@@ -10,7 +10,7 @@ import (
 
 // ProxyAssignments keeps track of what proxies are assigned to what users.
 type ProxyAssignments struct {
-	sync.Mutex
+	m           sync.Mutex
 	UserToProxy map[*User]*internal.Set
 	ProxyToUser map[*Proxy]*internal.Set
 }
@@ -25,8 +25,8 @@ func NewProxyAssignments() *ProxyAssignments {
 
 // GetUsers returns a slice of all users that were assigned the given proxy.
 func (a *ProxyAssignments) GetUsers(p *Proxy) []*User {
-	a.Lock()
-	defer a.Unlock()
+	a.m.Lock()
+	defer a.m.Unlock()
 
 	users := []*User{}
 	s, exists := a.ProxyToUser[p]
@@ -42,8 +42,8 @@ func (a *ProxyAssignments) GetUsers(p *Proxy) []*User {
 // GetProxies returns a slice of all resources that were assigned to the given
 // user.
 func (a *ProxyAssignments) GetProxies(u *User) []core.Resource {
-	a.Lock()
-	defer a.Unlock()
+	a.m.Lock()
+	defer a.m.Unlock()
 
 	proxies := []core.Resource{}
 	s, exists := a.UserToProxy[u]
@@ -58,8 +58,8 @@ func (a *ProxyAssignments) GetProxies(u *User) []core.Resource {
 
 // AddAssignment adds a bi-directional assignment from user to/from proxy.
 func (a *ProxyAssignments) Add(u *User, p *Proxy) {
-	a.Lock()
-	defer a.Unlock()
+	a.m.Lock()
+	defer a.m.Unlock()
 
 	set, exists := a.UserToProxy[u]
 	if !exists {
@@ -79,8 +79,8 @@ func (a *ProxyAssignments) Add(u *User, p *Proxy) {
 // RemoveProxy removes a proxy from our assignments.
 func (a *ProxyAssignments) RemoveProxy(p *Proxy) {
 	users := a.GetUsers(p)
-	a.Lock()
-	defer a.Unlock()
+	a.m.Lock()
+	defer a.m.Unlock()
 
 	if _, exists := a.ProxyToUser[p]; !exists {
 		return

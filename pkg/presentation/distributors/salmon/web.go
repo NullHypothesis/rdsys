@@ -2,9 +2,11 @@ package salmon
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/internal"
+	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/persistence/file"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/presentation/distributors/common"
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/usecases/distributors/salmon"
 )
@@ -106,6 +108,19 @@ func RedeemHandler(w http.ResponseWriter, r *http.Request) {
 func InitFrontend(cfg *internal.Config) {
 
 	dist = salmon.NewSalmonDistributor()
+
+	pMech := file.New(salmon.DistName, cfg.Distributors.Salmon.WorkingDir)
+	if err := pMech.Load(dist); err != nil {
+		// It's best to fail here, and encourage the operator to fix whatever
+		// went wrong with our persistence mechanism.  If we continue despite
+		// the error, we may end up overwriting important data.
+		log.Fatalf("Failed to load persistent data: %s", err)
+	}
+	defer func() {
+		if err := pMech.Save(dist); err != nil {
+			log.Printf("Failed to save state: %s", err)
+		}
+	}()
 	handlers := map[string]http.HandlerFunc{
 		"/proxies": http.HandlerFunc(ProxiesHandler),
 		"/account": http.HandlerFunc(AccountHandler),
