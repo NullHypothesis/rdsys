@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	SalmonDistName = "salmon"
+	DistName = "salmon"
 	// The Salmon paper calls this threshold "T".  Simulation results suggest T
 	// = 1/3: <https://censorbib.nymity.ch/pdf/Douglas2016a.pdf#page=7>
 	MaxSuspicion         = 0.333
@@ -142,7 +142,7 @@ func (s *SalmonDistributor) processDiff(diff *core.ResourceDiff) {
 
 // Init initialises the given Salmon distributor.
 func (s *SalmonDistributor) Init(cfg *internal.Config) {
-	log.Printf("Initialising %s distributor.", SalmonDistName)
+	log.Printf("Initialising %s distributor.", DistName)
 
 	s.addUser(UntouchableTrustLevel, nil)
 	s.cfg = cfg
@@ -152,9 +152,9 @@ func (s *SalmonDistributor) Init(cfg *internal.Config) {
 	s.ipc = mechanisms.NewHttpsIpc("http://" + cfg.Backend.WebApi.ApiAddress + cfg.Backend.ResourceStreamEndpoint)
 	rStream := make(chan *core.ResourceDiff)
 	req := core.ResourceRequest{
-		RequestOrigin: SalmonDistName,
+		RequestOrigin: DistName,
 		ResourceTypes: s.cfg.Distributors.Salmon.Resources,
-		BearerToken:   s.cfg.Backend.ApiTokens[SalmonDistName],
+		BearerToken:   s.cfg.Backend.ApiTokens[DistName],
 		Receiver:      rStream,
 	}
 	s.ipc.StartStream(&req)
