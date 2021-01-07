@@ -13,12 +13,9 @@ import (
 const (
 	// FarInTheFuture determines a time span that's far enough in the future to
 	// practically count as infinity.
-	FarInTheFuture = time.Hour * 24 * 365
-	// FlushTimeout determines the time span after the first resource was added
-	// to the pool when we issue a bridgestrap request.
-	FlushTimeout = time.Minute
-	// MaxResources determines the number of resources at which we issue a
-	// bridgestrap request.
+	FarInTheFuture = time.Hour * 24 * 365 * 100
+	// MaxResources determines the maximum number of resources that we're
+	// willing to buffer before sending a request to bridgestrap.
 	MaxResources = 25
 )
 
@@ -47,62 +44,90 @@ type BridgestrapResponse struct {
 // to send them to bridgestrap for testing.
 type ResourceTestPool struct {
 	sync.Mutex
-	rMap     map[string]core.Resource
-	ticker   *time.Ticker
-	shutdown chan bool
-	ipc      delivery.Mechanism
+	flushTimeout time.Duration
+	shutdown     chan bool
+	pending      chan core.Resource
+	ipc          delivery.Mechanism
+	inProgress   map[string]bool
 }
 
 // NewResourceTestPool returns a new resource test pool.
 func NewResourceTestPool(apiEndpoint string) *ResourceTestPool {
 	p := &ResourceTestPool{}
+	p.flushTimeout = time.Minute
 	p.shutdown = make(chan bool)
+	p.pending = make(chan core.Resource)
 	p.ipc = mechanisms.NewHttpsIpc(apiEndpoint)
-	p.rMap = make(map[string]core.Resource)
-	p.ticker = time.NewTicker(FarInTheFuture)
-	go p.waitForTicker()
+	p.inProgress = make(map[string]bool)
+	go p.dispatch()
 
 	return p
 }
 
-// GetTestFunc returns a function that's executed when a new resource is added to
-// rdsys's backend.  The function takes as input a resource and adds it to our
-// testing pool.
+// GetTestFunc returns a function that's executed when a new resource is added
+// to rdsys's backend.  The function takes as input a resource and submits it
+// to our testing pool.
 func (p *ResourceTestPool) GetTestFunc() core.TestFunc {
 	return func(r core.Resource) {
-		p.Lock()
-		defer p.Unlock()
-
-		// Start timer if our pool was empty.
-		if len(p.rMap) == 0 {
-			p.ticker.Reset(FlushTimeout)
-		}
-		p.rMap[r.String()] = r
-
-		// Test resources if our pool is full.
-		if len(p.rMap) == MaxResources {
-			p.ticker.Reset(FarInTheFuture)
-			p.testResources()
-		}
+		p.pending <- r
 	}
 }
 
-// Stop stops the test pool.
+// Stop stops the test pool by signalling to the dispatcher that it's time to
+// shut down.
 func (p *ResourceTestPool) Stop() {
 	close(p.shutdown)
 }
 
-// waitForTicker tests the resources that are currently in the pool when our
-// ticker fires.
-func (p *ResourceTestPool) waitForTicker() {
+// alreadyInProgress returns 'true' if the given bridge line is being tested
+// right now.
+func (p *ResourceTestPool) alreadyInProgress(bridgeLine string) bool {
+	p.Lock()
+	defer p.Unlock()
+
+	if _, exists := p.inProgress[bridgeLine]; exists {
+		return true
+	}
+	p.inProgress[bridgeLine] = true
+	return false
+}
+
+// dispatch handles the following requests:
+// 1) Incoming resources to be tested
+// 2) A timer whose expiry signals that it's time to test bridges
+// 3) A shutdown signal, indicating that the function should return
+func (p *ResourceTestPool) dispatch() {
 	defer log.Printf("Shutting down resource pool ticker.")
 	log.Printf("Starting resource pool ticker.")
+
+	ticker := time.NewTicker(FarInTheFuture)
+	rMap := make(map[string]core.Resource)
 	for {
 		select {
-		case <-p.ticker.C:
-			p.Lock()
-			p.testResources()
-			p.Unlock()
+		case <-ticker.C:
+			log.Println("Test pool timer expired.  Testing resources.")
+			go p.testResources(rMap)
+			rMap = make(map[string]core.Resource)
+		case r := <-p.pending:
+			if p.alreadyInProgress(r.String()) {
+				break
+			}
+
+			// We got a new resource to test.  Start timer if our pool was
+			// empty.
+			if len(rMap) == 0 {
+				log.Println("Starting test pool timer.")
+				ticker.Reset(p.flushTimeout)
+			}
+			rMap[r.String()] = r
+
+			// Test resources if our pool is full.
+			if len(rMap) == MaxResources {
+				log.Println("Test pool reached capacity.  Resetting timer and testing resources.")
+				ticker.Reset(FarInTheFuture)
+				go p.testResources(rMap)
+				rMap = make(map[string]core.Resource)
+			}
 		case <-p.shutdown:
 			return
 		}
@@ -112,19 +137,22 @@ func (p *ResourceTestPool) waitForTicker() {
 // testResources puts all resources that are currently in our pool into a
 // bridgestrap requests and sends them to our bridgestrap instance for testing.
 // The testing results are then added to each resource's state.
-func (p *ResourceTestPool) testResources() {
-	if len(p.rMap) == 0 {
+func (p *ResourceTestPool) testResources(rMap map[string]core.Resource) {
+	defer func() {
+		p.Lock()
+		for bridgeLine, _ := range rMap {
+			delete(p.inProgress, bridgeLine)
+		}
+		p.Unlock()
+	}()
+
+	if len(rMap) == 0 {
 		return
 	}
-	defer func() {
-		// We're done testing; time to reset our pool and ticker.
-		p.rMap = make(map[string]core.Resource)
-		p.ticker.Reset(FarInTheFuture)
-	}()
 
 	req := BridgestrapRequest{}
 	resp := BridgestrapResponse{}
-	for bridgeLine, _ := range p.rMap {
+	for bridgeLine, _ := range rMap {
 		req.BridgeLines = append(req.BridgeLines, bridgeLine)
 	}
 
@@ -139,20 +167,21 @@ func (p *ResourceTestPool) testResources() {
 
 	numFunctional, numDysfunctional := 0, 0
 	for bridgeLine, bridgeTest := range resp.Bridges {
-		r, exists := p.rMap[bridgeLine]
+		r, exists := rMap[bridgeLine]
 		if !exists {
-			log.Printf("Bug: %q not in our resource pool.", bridgeLine)
+			log.Printf("Bug: %q not in our resource test pool.", bridgeLine)
 			continue
 		}
 
-		r.Test().LastTested = bridgeTest.LastTested
-		r.Test().Error = bridgeTest.Error
+		rTest := r.Test()
+		rTest.LastTested = bridgeTest.LastTested
+		rTest.Error = bridgeTest.Error
 		if bridgeTest.Functional {
 			numFunctional++
-			r.Test().State = core.StateFunctional
+			rTest.State = core.StateFunctional
 		} else {
 			numDysfunctional++
-			r.Test().State = core.StateDysfunctional
+			rTest.State = core.StateDysfunctional
 		}
 	}
 	log.Printf("Tested %d resources: %d functional and %d dysfunctional.",

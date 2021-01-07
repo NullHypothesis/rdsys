@@ -59,6 +59,15 @@ func (t *Transport) Oid() core.Hashkey {
 	return core.Hashkey(crc64.Checksum([]byte(t.String()), table))
 }
 
+// Uid simply returns the pluggable transport's Oid.  For PTs, we don't
+// distinguish between unique and object IDs because some Tor bridges run more
+// than one PT of the same type, e.g.:
+//
+//   obfs3 1.1.1.1:111 0123456789ABCDEF0123456789ABCDEF01234567
+//   obfs3 2.2.2.2:222 0123456789ABCDEF0123456789ABCDEF01234567
+//
+// If a PT's Uid is TYPE || FINGERPRINT, then rdsys would get confused because
+// the above two PTs would keep changing its Oid.
 func (t *Transport) Uid() core.Hashkey {
-	return t.BridgeUid(t.RType)
+	return t.Oid()
 }

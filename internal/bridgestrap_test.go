@@ -7,6 +7,8 @@ import (
 	"gitlab.torproject.org/tpo/anti-censorship/rdsys/pkg/core"
 )
 
+// DummyDelivery is a drop-in replacement for our HTTPS interface and
+// facilitates testing.
 type DummyDelivery struct{}
 
 func (d *DummyDelivery) StartStream(*core.ResourceRequest) {}
@@ -19,43 +21,53 @@ func (d *DummyDelivery) MakeJsonRequest(req interface{}, resp interface{}) error
 	return nil
 }
 
+func TestInProgress(t *testing.T) {
+
+	bridgeLine := "dummy"
+	p := NewResourceTestPool("")
+
+	if p.alreadyInProgress(bridgeLine) == true {
+		t.Fatal("bridge line isn't currently being tested")
+	}
+
+	p.inProgress[bridgeLine] = true
+
+	if p.alreadyInProgress(bridgeLine) != true {
+		t.Fatal("bridge line is currently being tested")
+	}
+}
+
+func TestDispatch(t *testing.T) {
+
+	d := core.NewDummy(0, 0)
+	p := NewResourceTestPool("")
+	p.ipc = &DummyDelivery{}
+	// Set flush timeout to a nanosecond, so it triggers practically instantly.
+	p.flushTimeout = time.Nanosecond
+	defer p.Stop()
+
+	p.pending <- d
+	d.Test().State = core.StateUntested
+	p.pending <- d
+	time.Sleep(time.Millisecond)
+
+	if d.Test().State == core.StateUntested {
+		t.Fatal("resource should not be untested")
+	}
+}
+
 func TestTestFunc(t *testing.T) {
 
 	p := NewResourceTestPool("")
-	// Replace our HTTPS IPC with our dummy to facilitate testing.
 	p.ipc = &DummyDelivery{}
+	defer p.Stop()
+
 	f := p.GetTestFunc()
 	dummies := [25]*core.Dummy{}
 	for i := 0; i < len(dummies); i++ {
 		k := core.Hashkey(i)
 		dummies[i] = core.NewDummy(k, k)
-	}
-
-	f(dummies[0])
-	if len(p.rMap) != 1 {
-		t.Fatal("unexpected size of resource pool")
-	}
-
-	// Adding the resource again shouldn't affect the pool size.
-	f(dummies[0])
-	if len(p.rMap) != 1 {
-		t.Fatal("unexpected size of resource pool")
-	}
-
-	for i := 0; i < len(dummies); i++ {
 		f(dummies[i])
-	}
-	// Our resource pool should now be flushed.
-	if len(p.rMap) != 0 {
-		t.Fatal("unexpected size of resource pool: ", p.rMap)
-	}
-
-	f(dummies[0])
-	// Trigger our timer.
-	p.ticker.Reset(time.Nanosecond)
-	time.Sleep(time.Millisecond * 100)
-	if len(p.rMap) != 0 {
-		t.Fatal("unexpected size of resource pool", len(p.rMap))
 	}
 
 	// Were all states set correctly?
@@ -64,6 +76,4 @@ func TestTestFunc(t *testing.T) {
 			t.Fatal("resource state was set incorrectly", dummies[i].Test().State)
 		}
 	}
-
-	p.Stop()
 }
