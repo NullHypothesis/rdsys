@@ -40,3 +40,4 @@ More documentation
 ==================
 
 * [Design and architecture](doc/architecture.md)
+* [Resource testing](doc/resource-testing.md)
