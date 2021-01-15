@@ -32,7 +32,7 @@
             }
         },
         "salmon": {
-            "working_directory": "/tmp/salmon/",
+            "working_dir": "/tmp/salmon/",
             "resources": ["obfs4"],
             "web_api": {
                 "api_address": "127.0.0.1:7300",

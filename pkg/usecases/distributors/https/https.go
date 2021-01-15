@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	HttpsDistName        = "https"
+	DistName             = "https"
 	BridgeReloadInterval = time.Minute * 10
 )
 
@@ -58,7 +58,7 @@ func (d *HttpsDistributor) RequestBridges(key core.Hashkey) ([]core.Resource, er
 
 // Init initialises the given HTTPS distributor.
 func (d *HttpsDistributor) Init(cfg *internal.Config) {
-	log.Printf("Initialising %s distributor.", HttpsDistName)
+	log.Printf("Initialising %s distributor.", DistName)
 
 	d.cfg = cfg
 	d.shutdown = make(chan bool)
@@ -68,9 +68,9 @@ func (d *HttpsDistributor) Init(cfg *internal.Config) {
 	d.ipc = mechanisms.NewHttpsIpc("http://" + cfg.Backend.WebApi.ApiAddress + cfg.Backend.ResourceStreamEndpoint)
 	rStream := make(chan *core.ResourceDiff)
 	req := core.ResourceRequest{
-		RequestOrigin: HttpsDistName,
+		RequestOrigin: DistName,
 		ResourceTypes: d.cfg.Distributors.Https.Resources,
-		BearerToken:   d.cfg.Backend.ApiTokens[HttpsDistName],
+		BearerToken:   d.cfg.Backend.ApiTokens[DistName],
 		Receiver:      rStream,
 	}
 	d.ipc.StartStream(&req)
@@ -81,7 +81,7 @@ func (d *HttpsDistributor) Init(cfg *internal.Config) {
 
 // Shutdown shuts down the given HTTPS distributor.
 func (d *HttpsDistributor) Shutdown() {
-	log.Printf("Shutting down %s distributor.", HttpsDistName)
+	log.Printf("Shutting down %s distributor.", DistName)
 
 	// Signal to housekeeping that it's time to stop.
 	close(d.shutdown)
