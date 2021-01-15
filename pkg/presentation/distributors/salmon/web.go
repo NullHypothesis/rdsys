@@ -116,6 +116,7 @@ func InitFrontend(cfg *internal.Config) {
 		// the error, we may end up overwriting important data.
 		log.Fatalf("Failed to load persistent data: %s", err)
 	}
+	log.Printf("Distributor state: %s", dist)
 	defer func() {
 		if err := pMech.Save(dist); err != nil {
 			log.Printf("Failed to save state: %s", err)

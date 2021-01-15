@@ -6,6 +6,7 @@ package salmon
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -69,6 +70,17 @@ func NewSalmonDistributor() *SalmonDistributor {
 	salmon.cfg = &internal.Config{}
 	salmon.Assignments = NewProxyAssignments()
 	return salmon
+}
+
+// String implements the Stringer interface.
+func (s *SalmonDistributor) String() string {
+	return fmt.Sprintf("token cache=%d; users=%d; assigned=%d; unassigned=%d; user2proxy=%d; proxy2user=%d",
+		len(s.TokenCache),
+		len(s.Users),
+		len(s.AssignedProxies),
+		len(s.UnassignedProxies),
+		len(s.Assignments.UserToProxy),
+		len(s.Assignments.ProxyToUser))
 }
 
 // addUser adds a new user to Salmon and sets its trust and inviter to the
