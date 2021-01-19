@@ -10,7 +10,8 @@
         "supported_resources": ["vanilla", "obfs2", "obfs3", "obfs4", "scramblesuit"],
         "api_tokens": {
                 "https": "HttpsApiTokenPlaceholder",
-                "salmon": "SalmonApiTokenPlaceholder"
+                "salmon": "SalmonApiTokenPlaceholder",
+                "stub": "StubApiTokenPlaceholder"
         },
         "web_api": {
             "api_address": "127.0.0.1:7100",
@@ -19,7 +20,8 @@
         },
         "distribution_proportions": {
             "https": 1,
-            "salmon": 5
+            "salmon": 5,
+            "stub": 3
         }
     },
     "distributors": {
@@ -36,6 +38,14 @@
             "resources": ["obfs4"],
             "web_api": {
                 "api_address": "127.0.0.1:7300",
+                "cert_file": "",
+                "key_file": ""
+            }
+        },
+        "stub": {
+            "resources": ["obfs4"],
+            "web_api": {
+                "api_address": "127.0.0.1:7400",
                 "cert_file": "",
                 "key_file": ""
             }
